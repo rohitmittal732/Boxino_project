@@ -1,19 +1,18 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Auth Providers — Riverpod state management for the Email + Password flow.
+// Auth Providers — Riverpod state management for authentication.
 //
-// These providers manage UI state specific to the authentication flow:
-//   • Loading indicators during async operations
-//   • Error messages to display to the user
-//
-// Note: The app-wide auth session stream is in app_providers.dart (unchanged).
+// • authLoadingProvider  — simple bool for loading state
+// • authErrorProvider    — last error message
+// • authNotifierProvider — re-exported from auth_notifier.dart
 // ─────────────────────────────────────────────────────────────────────────────
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Tracks whether an auth operation (login, signup, logout) is in progress.
-/// The UI reads this to show/hide loading spinners and disable buttons.
+// Re-export AuthNotifier for convenience
+export 'auth_notifier.dart' show authNotifierProvider, AuthStateModel, AuthStatus;
+
+/// Tracks whether an auth operation is in progress (for lightweight usage).
 final authLoadingProvider = StateProvider<bool>((ref) => false);
 
-/// Stores a user-friendly error message when an auth operation fails.
-/// Set to null when there is no error. The UI reads this to show snackbars.
+/// Stores the last error message from an auth operation.
 final authErrorProvider = StateProvider<String?>((ref) => null);
