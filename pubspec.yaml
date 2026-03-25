@@ -1,0 +1,44 @@
+name: boxino
+description: A new Flutter project.
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # UI / Core
+  cupertino_icons: ^1.0.2
+  google_fonts: ^6.1.0
+
+  # State Management
+  flutter_riverpod: ^2.4.9
+  
+  # Backend
+  supabase_flutter: ^2.4.0
+  
+  # Auth
+  google_sign_in: ^6.2.1
+  
+  # Maps
+  flutter_map: ^6.1.0
+  latlong2: ^0.9.0
+
+  # Payments (Removed for MVP)
+
+  # Routing
+  go_router: ^13.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
