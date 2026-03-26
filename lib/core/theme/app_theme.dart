@@ -59,7 +59,7 @@ class AppTheme {
     primaryColor: primaryOrange,
     scaffoldBackgroundColor: background,
     useMaterial3: true,
-    colorScheme: ColorScheme.light(
+    colorScheme: const ColorScheme.light(
       primary: primaryOrange,
       secondary: primaryGreen,
       error: errorRed,

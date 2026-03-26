@@ -12,7 +12,7 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   final MapController _mapController = MapController();
-  final LatLng _center = const LatLng(28.6139, 77.2090); // Connaught Place
+  static const LatLng _center = LatLng(28.6139, 77.2090); // Connaught Place
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +21,7 @@ class _MapScreenState extends State<MapScreen> {
         children: [
           FlutterMap(
             mapController: _mapController,
-            options: MapOptions(
+            options: const MapOptions(
               initialCenter: _center,
               initialZoom: 14.0,
             ),
@@ -30,25 +30,25 @@ class _MapScreenState extends State<MapScreen> {
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.boxino.app',
               ),
-              MarkerLayer(
+               const MarkerLayer(
                 markers: [
                   Marker(
-                    point: const LatLng(28.6150, 77.2100),
+                    point: LatLng(28.6150, 77.2100),
                     width: 80,
                     height: 80,
                     child: Column(
-                      children: const [
+                      children: [
                         Icon(Icons.location_on, color: AppTheme.primaryOrange, size: 40),
                         Text('Maa Ki Rasoi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, backgroundColor: Colors.white)),
                       ],
                     ),
                   ),
                   Marker(
-                    point: const LatLng(28.6120, 77.2080),
+                    point: LatLng(28.6120, 77.2080),
                     width: 100,
                     height: 80,
                     child: Column(
-                      children: const [
+                      children: [
                         Icon(Icons.location_on, color: AppTheme.primaryOrange, size: 40),
                         Text('Healthy Bites', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, backgroundColor: Colors.white)),
                       ],

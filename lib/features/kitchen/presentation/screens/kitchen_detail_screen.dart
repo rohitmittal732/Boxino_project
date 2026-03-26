@@ -1,230 +1,258 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:boxino/core/theme/app_theme.dart';
+import 'package:boxino/core/providers/app_providers.dart';
+import 'package:boxino/domain/models/app_models.dart';
 
-class KitchenDetailScreen extends StatefulWidget {
-  const KitchenDetailScreen({super.key});
+class KitchenDetailScreen extends ConsumerWidget {
+  final KitchenModel kitchen;
 
-  @override
-  State<KitchenDetailScreen> createState() => _KitchenDetailScreenState();
-}
-
-class _KitchenDetailScreenState extends State<KitchenDetailScreen> {
-  String _spiceLevel = 'Medium';
-  String _oilLevel = 'Standard';
+  const KitchenDetailScreen({super.key, required this.kitchen});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final menusAsync = ref.watch(kitchenMenusProvider(kitchen.id));
+    final cart = ref.watch(cartProvider);
+
     return Scaffold(
       backgroundColor: AppTheme.background,
       body: CustomScrollView(
         slivers: [
+          // Banner Image & Back Button
           SliverAppBar(
-            expandedHeight: 250,
+            expandedHeight: 200,
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
               background: Image.network(
-                'https://via.placeholder.com/800x400?text=Kitchen+Header',
+                kitchen.imageUrl.isNotEmpty ? kitchen.imageUrl : 'https://via.placeholder.com/600x300?text=Kitchen+Image',
                 fit: BoxFit.cover,
               ),
             ),
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.black,
+            leading: IconButton(
+              icon: const CircleAvatar(
+                backgroundColor: Colors.white,
+                child: Icon(Icons.arrow_back, color: Colors.black),
+              ),
+              onPressed: () => context.pop(),
+            ),
           ),
+
+          // Kitchen info
           SliverToBoxAdapter(
-            child: Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Maa Ki Rasoi',
-                                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                              ),
-                              SizedBox(height: 8),
-                              Text(
-                                'North Indian • Healthy • Home Cooked',
-                                style: TextStyle(color: Colors.grey, fontSize: 14),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryGreen.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Row(
-                            children: const [
-                              Icon(Icons.star, color: AppTheme.primaryGreen, size: 18),
-                              SizedBox(width: 4),
-                              Text(
-                                '4.8',
-                                style: TextStyle(
-                                  color: AppTheme.primaryGreen,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    
-                    const Text(
-                      'Description',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Authentic homemade North Indian meals prepared with love and basic spices. Perfect for daily consumption. 100% hygiene guaranteed.',
-                      style: TextStyle(color: Colors.black87, height: 1.5),
-                    ),
-                    const SizedBox(height: 24),
-                    
-                    const Text(
-                      'Customization',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Spice Level
-                    const Text('Spice Level', style: TextStyle(fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: ['Low', 'Medium', 'High'].map((level) {
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: ChoiceChip(
-                            label: Text(level),
-                            selected: _spiceLevel == level,
-                            onSelected: (selected) {
-                              if (selected) setState(() => _spiceLevel = level);
-                            },
-                            selectedColor: AppTheme.primaryOrange.withOpacity(0.2),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Oil Level
-                    const Text('Oil Level', style: TextStyle(fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: ['Less Oil', 'Standard'].map((level) {
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: ChoiceChip(
-                            label: Text(level),
-                            selected: _oilLevel == level,
-                            onSelected: (selected) {
-                              if (selected) setState(() => _oilLevel = level);
-                            },
-                            selectedColor: AppTheme.primaryOrange.withOpacity(0.2),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 32),
-                    
-                    // Menu Items Preview
-                    const Text(
-                      'Today\'s Menu',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 16),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(12),
-                          image: const DecorationImage(
-                            image: NetworkImage('https://via.placeholder.com/100'),
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ),
-                      title: const Text('Special Thali', style: TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: const Text('Dal Makhani, Mix Veg, 4 Roti, Rice, Salad'),
-                      trailing: const Text(
-                        '₹120',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.primaryGreen),
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 80), // padding for bottom button
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-      bottomSheet: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          child: Row(
-            children: [
-              Column(
-                mainAxisSize: MainAxisSize.min,
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text('Price from', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                  Text('₹120/meal', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        kitchen.name,
+                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                      ),
+                      Row(
+                        children: [
+                          const Icon(Icons.star, color: Colors.amber, size: 20),
+                          const SizedBox(width: 4),
+                          Text(kitchen.rating.toString(), style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(kitchen.description, style: const TextStyle(color: Colors.grey)),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      if (kitchen.isVeg) _buildTag('Veg', Colors.green),
+                      if (kitchen.isNonVeg) _buildTag('Non-Veg', Colors.red),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(),
+                  const SizedBox(height: 16),
+                  const Text('Menu', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 ],
               ),
-              const SizedBox(width: 24),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () {
-                    context.push('/subscription');
+            ),
+          ),
+
+          // Menu List
+          menusAsync.when(
+            data: (menus) {
+              if (menus.isEmpty) {
+                return const SliverToBoxAdapter(
+                  child: Center(child: Padding(
+                    padding: EdgeInsets.all(32.0),
+                    child: Text('No menu items available.'),
+                  )),
+                );
+              }
+              return SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final item = menus[index];
+                    return MenuItemCard(menu: item);
                   },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryOrange,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: const Text('Subscribe Now', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  childCount: menus.length,
                 ),
+              );
+            },
+            loading: () => const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator())),
+            error: (e, s) => SliverToBoxAdapter(child: Center(child: Text('Error: $e'))),
+          ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: 100)),
+        ],
+      ),
+      
+      // Cart Summary Bar
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: cart.isNotEmpty
+          ? Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryOrange,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10),
+                ],
               ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${cart.length} item${cart.length > 1 ? 's' : ''}',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        'Total: ₹${ref.read(cartProvider.notifier).total}',
+                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                  ElevatedButton(
+                    onPressed: () => context.push('/order-summary'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: AppTheme.primaryOrange,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('View Cart'),
+                  ),
+                ],
+              ),
+            )
+          : null,
+    );
+  }
+
+  Widget _buildTag(String label, Color color) {
+    return Container(
+      margin: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+}
+
+class MenuItemCard extends ConsumerWidget {
+  final MenuModel menu;
+  const MenuItemCard({super.key, required this.menu});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cart = ref.watch(cartProvider);
+    final quantity = cart[menu.id]?.quantity ?? 0;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          // Item Image
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              image: DecorationImage(
+                image: NetworkImage(menu.imageUrl.isNotEmpty ? menu.imageUrl : 'https://via.placeholder.com/100?text=Menu'),
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.circle, size: 10, color: menu.category == 'Veg' ? Colors.green : Colors.red),
+                    const SizedBox(width: 4),
+                    Text(menu.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  ],
+                ),
+                Text(menu.description, style: const TextStyle(color: Colors.grey, fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 8),
+                Text('₹${menu.price}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryOrange)),
+              ],
+            ),
+          ),
+          
+          // Add/Remove Controls
+          Column(
+            children: [
+              if (quantity == 0)
+                ElevatedButton(
+                  onPressed: () => ref.read(cartProvider.notifier).addItem(menu),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: AppTheme.primaryOrange,
+                    side: const BorderSide(color: AppTheme.primaryOrange),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    minimumSize: const Size(80, 40),
+                  ),
+                  child: const Text('Add'),
+                )
+              else
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline, color: AppTheme.primaryOrange),
+                      onPressed: () => ref.read(cartProvider.notifier).removeItem(menu.id),
+                    ),
+                    Text(quantity.toString(), style: const TextStyle(fontWeight: FontWeight.bold)),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline, color: AppTheme.primaryOrange),
+                      onPressed: () => ref.read(cartProvider.notifier).addItem(menu),
+                    ),
+                  ],
+                ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }

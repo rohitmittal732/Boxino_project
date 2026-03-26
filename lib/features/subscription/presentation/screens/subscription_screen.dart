@@ -78,10 +78,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 children: [
                   const Icon(Icons.location_on, color: AppTheme.primaryOrange),
                   const SizedBox(width: 16),
-                  Expanded(
+                  const Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
+                      children: [
                         Text('Home', style: TextStyle(fontWeight: FontWeight.bold)),
                         Text('Connaught Place, Delhi, 110001', style: TextStyle(color: Colors.grey, fontSize: 13)),
                       ],

@@ -21,6 +21,7 @@ dependencies:
   
   # Backend
   supabase_flutter: ^2.4.0
+  uuid: ^4.3.3
   
   # Auth
   google_sign_in: ^6.2.1
@@ -34,6 +35,7 @@ dependencies:
   # Routing
   go_router: ^13.1.0
 
+  intl: any
 dev_dependencies:
   flutter_test:
     sdk: flutter

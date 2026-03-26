@@ -1,17 +1,15 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:boxino/core/theme/app_theme.dart';
 
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
+class _SplashScreenState extends ConsumerState<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double>   _scaleAnim;
@@ -35,17 +33,6 @@ class _SplashScreenState extends State<SplashScreen>
     );
 
     _controller.forward();
-
-    // After 2.5s, check auth and redirect
-    Timer(const Duration(milliseconds: 2500), () {
-      if (!mounted) return;
-      final session = Supabase.instance.client.auth.currentSession;
-      if (session != null) {
-        context.go('/home');
-      } else {
-        context.go('/login');
-      }
-    });
   }
 
   @override
@@ -63,32 +50,6 @@ class _SplashScreenState extends State<SplashScreen>
         ),
         child: Stack(
           children: [
-            // Background decorative circles
-            Positioned(
-              top: -80,
-              right: -60,
-              child: Container(
-                width: 240,
-                height: 240,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withOpacity(0.08),
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: -100,
-              left: -50,
-              child: Container(
-                width: 300,
-                height: 300,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withOpacity(0.06),
-                ),
-              ),
-            ),
-
             // Center content
             Center(
               child: FadeTransition(
@@ -98,20 +59,12 @@ class _SplashScreenState extends State<SplashScreen>
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Logo container
                       Container(
                         width: 110,
                         height: 110,
-                        decoration: BoxDecoration(
+                        decoration: const BoxDecoration(
                           color: Colors.white,
                           shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.15),
-                              blurRadius: 32,
-                              offset: const Offset(0, 12),
-                            ),
-                          ],
                         ),
                         child: const Center(
                           child: Icon(
@@ -122,8 +75,6 @@ class _SplashScreenState extends State<SplashScreen>
                         ),
                       ),
                       const SizedBox(height: 28),
-
-                      // App name
                       const Text(
                         'Boxino',
                         style: TextStyle(
@@ -135,23 +86,10 @@ class _SplashScreenState extends State<SplashScreen>
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        'Ghar jaisa healthy khana',
+                        'Healthy Ghar Jaisa Khana',
                         style: TextStyle(
                           fontSize: 16,
                           color: Colors.white.withOpacity(0.85),
-                          fontWeight: FontWeight.w400,
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                      const SizedBox(height: 60),
-
-                      // Loading indicator
-                      SizedBox(
-                        width: 32,
-                        height: 32,
-                        child: CircularProgressIndicator(
-                          color: Colors.white.withOpacity(0.8),
-                          strokeWidth: 2.5,
                         ),
                       ),
                     ],

@@ -19,16 +19,18 @@ void main() async {
   );
 }
 
-class BoxinoApp extends StatelessWidget {
+class BoxinoApp extends ConsumerWidget {
   const BoxinoApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final router = ref.watch(appRouterProvider);
+
     return MaterialApp.router(
       title: 'Boxino',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      routerConfig: appRouter,
+      routerConfig: router,
     );
   }
 }

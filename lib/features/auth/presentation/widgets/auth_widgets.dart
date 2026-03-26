@@ -341,7 +341,7 @@ class _GoogleGPainter extends CustomPainter {
       ..strokeWidth = 3.5
       ..strokeCap = StrokeCap.butt;
 
-    final sweepAngle = 3.14159 / 2; // 90 degrees each
+    const sweepAngle = 3.14159 / 2; // 90 degrees each
     for (int i = 0; i < 4; i++) {
       paint.color = colors[i];
       canvas.drawArc(

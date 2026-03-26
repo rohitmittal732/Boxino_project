@@ -1,191 +1,194 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:boxino/core/theme/app_theme.dart';
+import 'package:boxino/core/providers/app_providers.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
-class OrderTrackingScreen extends StatefulWidget {
-  const OrderTrackingScreen({super.key});
-
-  @override
-  State<OrderTrackingScreen> createState() => _OrderTrackingScreenState();
-}
-
-class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
-  // Order status: preparing, out_for_delivery, delivered
-  String _currentStatus = 'preparing';
-
-  final List<Map<String, dynamic>> _statusSteps = [
-    {
-      'key': 'preparing',
-      'title': 'Preparing',
-      'subtitle': 'Your meal is being cooked fresh',
-      'icon': Icons.restaurant,
-    },
-    {
-      'key': 'out_for_delivery',
-      'title': 'Out for Delivery',
-      'subtitle': 'Your meal is on the way',
-      'icon': Icons.delivery_dining,
-    },
-    {
-      'key': 'delivered',
-      'title': 'Delivered',
-      'subtitle': 'Enjoy your meal!',
-      'icon': Icons.check_circle,
-    },
-  ];
-
-  int get _currentStepIndex {
-    return _statusSteps.indexWhere((s) => s['key'] == _currentStatus);
-  }
+class OrderTrackingScreen extends ConsumerWidget {
+  final String orderId;
+  const OrderTrackingScreen({super.key, required this.orderId});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Listen to both order status and delivery updates
+    final orderStream = ref.watch(liveOrderStreamProvider(orderId));
+    final deliveryStream = ref.watch(liveDeliveryStreamProvider(orderId));
+
     return Scaffold(
+      backgroundColor: AppTheme.background,
       appBar: AppBar(
         title: const Text('Track Order'),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
       ),
-      backgroundColor: AppTheme.background,
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Estimated Time
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppTheme.primaryOrange.withOpacity(0.1),
-                    AppTheme.primaryGreen.withOpacity(0.1),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Column(
-                children: const [
-                  Text(
-                    'Estimated Delivery',
-                    style: TextStyle(color: Colors.grey, fontSize: 14),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    '30 - 45 mins',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 32),
+      body: orderStream.when(
+        data: (orderData) {
+          if (orderData.isEmpty) return const Center(child: Text('Order not found.'));
+          final orderRaw = orderData.first;
+          final orderStatus = orderRaw['status'] as String;
+          final kitchenId = orderRaw['kitchen_id'] as String;
+          final kitchenAsync = ref.watch(kitchenByIdProvider(kitchenId));
 
-            // Status Timeline
-            const Text(
-              'Order Status',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 24),
-            ...List.generate(_statusSteps.length, (index) {
-              final step = _statusSteps[index];
-              final isCompleted = index <= _currentStepIndex;
-              final isLast = index == _statusSteps.length - 1;
+          return deliveryStream.when(
+            data: (deliveries) {
+              final delivery = deliveries.isNotEmpty ? deliveries.first : null;
+              final currentStatus = delivery?.status ?? orderStatus;
 
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Timeline indicator
-                  Column(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: isCompleted
-                              ? AppTheme.primaryGreen
-                              : Colors.grey.shade300,
-                          shape: BoxShape.circle,
+              return SingleChildScrollView(
+                child: Column(
+                  children: [
+                    // Live Map
+                    SizedBox(
+                      height: 300,
+                      width: double.infinity,
+                      child: FlutterMap(
+                        options: MapOptions(
+                          initialCenter: (delivery != null && delivery.lat != null && delivery.lat != 0)
+                              ? LatLng(delivery.lat!, delivery.lng!)
+                              : const LatLng(26.9124, 75.7873), // Default Jaipur
+                          initialZoom: 14.0,
                         ),
-                        child: Icon(
-                          step['icon'] as IconData,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                      if (!isLast)
-                        Container(
-                          width: 3,
-                          height: 50,
-                          color: isCompleted
-                              ? AppTheme.primaryGreen
-                              : Colors.grey.shade300,
-                        ),
-                    ],
-                  ),
-                  const SizedBox(width: 16),
-                  // Step details
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            step['title'] as String,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: isCompleted ? Colors.black : Colors.grey,
-                            ),
+                          TileLayer(
+                            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            userAgentPackageName: 'com.boxino.app',
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            step['subtitle'] as String,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: isCompleted
-                                  ? Colors.black54
-                                  : Colors.grey.shade400,
-                            ),
+                          MarkerLayer(
+                            markers: [
+                              // Delivery Boy Marker
+                              if (delivery != null && delivery.lat != null && delivery.lat != 0)
+                                Marker(
+                                  point: LatLng(delivery.lat!, delivery.lng!),
+                                  width: 50,
+                                  height: 50,
+                                  child: const Icon(Icons.delivery_dining, color: AppTheme.primaryOrange, size: 40),
+                                ),
+                              // Destination Marker (Kitchen)
+                              if (kitchenAsync.hasValue && kitchenAsync.value != null)
+                                Marker(
+                                  point: LatLng(kitchenAsync.value!.lat, kitchenAsync.value!.long),
+                                  width: 50,
+                                  height: 50,
+                                  child: const Icon(Icons.location_on, color: AppTheme.primaryGreen, size: 40),
+                                ),
+                            ],
                           ),
-                          SizedBox(height: isLast ? 0 : 30),
                         ],
                       ),
                     ),
-                  ),
-                ],
-              );
-            }),
-
-            const Spacer(),
-
-            // Back to Home
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: () => context.go('/home'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.primaryOrange,
-                  side: const BorderSide(color: AppTheme.primaryOrange),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
+                    
+                    Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Order Status', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                              Text('#${orderId.substring(0, 8)}', style: const TextStyle(color: Colors.grey)),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                          _buildTimeline(currentStatus),
+                          const SizedBox(height: 40),
+                          if (delivery != null) ...[
+                            const Text('Delivery Partner Info', style: TextStyle(fontWeight: FontWeight.bold)),
+                            const ListTile(
+                              leading: CircleAvatar(child: Icon(Icons.person)),
+                              title: Text('Sanjeev (Delivery Partner)'),
+                              subtitle: Text('Contact: +91 98765 43210'),
+                            ),
+                          ],
+                          const SizedBox(height: 20),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton(
+                              onPressed: () => context.go('/home'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.primaryOrange,
+                                side: const BorderSide(color: AppTheme.primaryOrange),
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              ),
+                              child: const Text('Back to Home', style: TextStyle(fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                child: const Text(
-                  'Back to Home',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, s) => Center(child: Text('Error: $e')),
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, s) => Center(child: Text('Error: $e')),
+      ),
+    );
+  }
+
+  Widget _buildTimeline(String currentStatus) {
+    final statuses = ['pending', 'accepted', 'preparing', 'out_for_delivery', 'delivered'];
+    
+    // Normalize status names between tables
+    String normalized = currentStatus.toLowerCase();
+    if (normalized == 'picked_up') normalized = 'preparing';
+    if (normalized == 'on_the_way') normalized = 'out_for_delivery';
+
+    final currentIndex = statuses.indexOf(normalized);
+
+    return Column(
+      children: statuses.asMap().entries.map((entry) {
+        final index = entry.key;
+        final status = entry.value;
+        final isCompleted = index <= currentIndex;
+        final isLast = index == statuses.length - 1;
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Column(
+              children: [
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: isCompleted ? AppTheme.primaryGreen : Colors.grey.shade300,
+                    shape: BoxShape.circle,
+                  ),
+                  child: isCompleted ? const Icon(Icons.check, size: 12, color: Colors.white) : null,
+                ),
+                if (!isLast)
+                  Container(
+                    width: 2,
+                    height: 40,
+                    color: isCompleted ? AppTheme.primaryGreen : Colors.grey.shade300,
+                  ),
+              ],
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  status.replaceAll('_', ' ').toUpperCase(),
+                  style: TextStyle(
+                    fontWeight: isCompleted ? FontWeight.bold : FontWeight.normal,
+                    color: isCompleted ? Colors.black : Colors.grey,
+                  ),
                 ),
               ),
             ),
           ],
-        ),
-      ),
+        );
+      }).toList(),
     );
   }
 }
