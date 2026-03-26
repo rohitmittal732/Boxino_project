@@ -24,19 +24,26 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen> {
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () => ref.read(supabaseServiceProvider).signOut(),
+          )
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(50),
           child: Row(
             children: [
-              _buildTab(0, 'Kitchens'),
-              _buildTab(1, 'All Orders'),
-              _buildTab(2, 'Users'),
+              _buildTab(0, 'Dashboard'),
+              _buildTab(1, 'Kitchens'),
+              _buildTab(2, 'Orders'),
+              _buildTab(3, 'Users'),
             ],
           ),
         ),
       ),
       body: _buildBody(),
-      floatingActionButton: _tabIndex == 0
+      floatingActionButton: _tabIndex == 1
           ? FloatingActionButton(
               onPressed: () => _showAddKitchenDialog(context),
               backgroundColor: AppTheme.primaryOrange,
@@ -48,9 +55,10 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen> {
 
   Widget _buildBody() {
     switch (_tabIndex) {
-      case 0: return const AdminKitchensTab();
-      case 1: return const AdminOrdersTab();
-      case 2: return const AdminUsersTab();
+      case 0: return const AdminDashboardTab();
+      case 1: return const AdminKitchensTab();
+      case 2: return const AdminOrdersTab();
+      case 3: return const AdminUsersTab();
       default: return const SizedBox.shrink();
     }
   }
@@ -133,6 +141,73 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen> {
   }
 }
 
+class AdminDashboardTab extends ConsumerWidget {
+  const AdminDashboardTab({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ordersAsync = ref.watch(adminOrdersProvider);
+
+    return ordersAsync.when(
+      data: (orders) {
+        final totalOrders = orders.length;
+        final totalRevenue = orders
+            .where((o) => o.paymentStatus == 'paid' || o.status == 'delivered')
+            .fold(0.0, (sum, o) => sum + o.totalPrice);
+        final activeDeliveries = orders.where((o) => ['accepted', 'preparing', 'out_for_delivery'].contains(o.status)).length;
+
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Overview', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(child: _buildStatCard('Total Revenue', '₹${totalRevenue.toStringAsFixed(0)}', Colors.green, Icons.attach_money)),
+                  const SizedBox(width: 16),
+                  Expanded(child: _buildStatCard('Active Deliveries', '$activeDeliveries', Colors.orange, Icons.delivery_dining)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _buildStatCard('Total Orders', '$totalOrders', Colors.blue, Icons.receipt_long),
+            ],
+          ),
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, s) => Center(child: Text('Error loading dashboard: $e')),
+    );
+  }
+
+  Widget _buildStatCard(String title, String value, Color color, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppTheme.cardShadow,
+        border: Border.all(color: color.withOpacity(0.3), width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 28),
+              const SizedBox(width: 8),
+              Expanded(child: Text(title, style: const TextStyle(fontSize: 14, color: Colors.grey))),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(value, style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: color)),
+        ],
+      ),
+    );
+  }
+}
+
 class AdminKitchensTab extends ConsumerWidget {
   const AdminKitchensTab({super.key});
 
@@ -151,6 +226,14 @@ class AdminKitchensTab extends ConsumerWidget {
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                Switch(
+                  value: k.isApproved,
+                  onChanged: (val) async {
+                    await ref.read(supabaseServiceProvider).toggleKitchenApproval(k.id, val);
+                    ref.invalidate(adminKitchensProvider);
+                  },
+                  activeColor: AppTheme.primaryGreen,
+                ),
                 IconButton(
                   icon: const Icon(Icons.restaurant_menu),
                   onPressed: () => _showAddMenuDialog(context, ref, k.id),
@@ -222,20 +305,55 @@ class AdminKitchensTab extends ConsumerWidget {
   }
 }
 
-class AdminOrdersTab extends ConsumerWidget {
+class AdminOrdersTab extends ConsumerStatefulWidget {
   const AdminOrdersTab({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AdminOrdersTab> createState() => _AdminOrdersTabState();
+}
+
+class _AdminOrdersTabState extends ConsumerState<AdminOrdersTab> {
+  String _filter = 'All';
+
+  @override
+  Widget build(BuildContext context) {
     final ordersAsync = ref.watch(adminOrdersProvider);
     final usersAsync = ref.watch(allUsersProvider);
 
-    return ordersAsync.when(
-      data: (orders) => ListView.builder(
-        itemCount: orders.length,
-        itemBuilder: (context, index) {
-          final o = orders[index];
-          return Card(
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'All', label: Text('All')),
+              ButtonSegment(value: 'Pending', label: Text('Pending')),
+              ButtonSegment(value: 'Delivered', label: Text('Delivered')),
+            ],
+            selected: {_filter},
+            onSelectionChanged: (val) => setState(() => _filter = val.first),
+            style: SegmentedButton.styleFrom(
+              selectedForegroundColor: Colors.white,
+              selectedBackgroundColor: AppTheme.primaryOrange,
+            ),
+          ),
+        ),
+        Expanded(
+          child: ordersAsync.when(
+            data: (orders) {
+              final filtered = orders.where((o) {
+                if (_filter == 'Pending') return o.status == 'pending';
+                if (_filter == 'Delivered') return o.status == 'delivered';
+                return true;
+              }).toList();
+
+              if (filtered.isEmpty) return const Center(child: Text('No orders found'));
+
+              return ListView.builder(
+                itemCount: filtered.length,
+                itemBuilder: (context, index) {
+                  final o = filtered[index];
+                  return Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Padding(
               padding: const EdgeInsets.all(16.0),
@@ -296,7 +414,7 @@ class AdminOrdersTab extends ConsumerWidget {
       ),
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, s) => Center(child: Text('Error: $e')),
-    );
+    ));
   }
 
   void _showAssignDialog(BuildContext context, WidgetRef ref, String orderId, List<UserModel> deliveryBoys) {

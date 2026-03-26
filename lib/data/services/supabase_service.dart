@@ -105,6 +105,10 @@ class SupabaseService {
     await _client.from('kitchens').delete().eq('id', id);
   }
 
+  Future<void> toggleKitchenApproval(String id, bool isApproved) async {
+    await _client.from('kitchens').update({'is_approved': isApproved}).eq('id', id);
+  }
+
   // MENUS
   Future<List<MenuModel>> getKitchenMenus(String kitchenId) async {
     final response = await _client.from('menus').select().eq('kitchen_id', kitchenId);
@@ -127,35 +131,61 @@ class SupabaseService {
 
   // ORDERS
   Future<String> createOrder(OrderModel order) async {
-    // 1. Validation
-    if (order.items.isEmpty) {
-      throw Exception('Order items cannot be empty');
-    }
-
+    if (order.items.isEmpty) throw Exception('Order items cannot be empty');
     final kitchen = await getKitchenById(order.kitchenId);
-    if (kitchen == null) {
-      throw Exception('Selected kitchen does not exist');
-    }
+    if (kitchen == null) throw Exception('Selected kitchen does not exist');
 
-    // 2. Retry Logic
     int attempts = 0;
     while (attempts < 3) {
       try {
-        print('LOG: SupabaseService: Attempting to create order (Attempt ${attempts + 1})');
         final response = await _client.from('orders').insert(order.toJson()).select('id').single();
         final orderId = response['id'] as String;
-        print('LOG: SupabaseService: Order created successfully: $orderId');
+        
+        // Auto-assign delivery after a slight delay so User gets immediate confirmation
+        Future.delayed(const Duration(seconds: 2), () => _autoAssignOrder(orderId));
+        
         return orderId;
       } catch (e) {
         attempts++;
-        if (attempts >= 3) {
-          print('ERROR: SupabaseService: Failed to create order after 3 attempts: $e');
-          rethrow;
-        }
+        if (attempts >= 3) rethrow;
         await Future.delayed(Duration(seconds: attempts)); // Exponential backoff
       }
     }
     throw Exception('Unknown error during order creation');
+  }
+
+  Future<void> _autoAssignOrder(String orderId) async {
+    try {
+      // Fetch all delivery boys
+      final response = await _client.from('users').select().eq('role', 'delivery');
+      final deliveryBoys = (response as List).map((u) => UserModel.fromJson(u)).toList();
+      if (deliveryBoys.isEmpty) return;
+
+      // Calculate loads
+      final activeDeliveries = await _client.from('deliveries').select('delivery_boy_id').neq('status', 'delivered');
+      final Map<String, int> loadMap = { for (var d in deliveryBoys) d.id: 0 };
+      for (var d in activeDeliveries as List) {
+        final boyId = d['delivery_boy_id'] as String;
+        if (loadMap.containsKey(boyId)) loadMap[boyId] = loadMap[boyId]! + 1;
+      }
+
+      // Find the least loaded delivery boy
+      String? selectedBoyId;
+      int minLoad = 999999;
+      for (var boy in deliveryBoys) {
+        if (loadMap[boy.id]! < minLoad) {
+          minLoad = loadMap[boy.id]!;
+          selectedBoyId = boy.id;
+        }
+      }
+
+      if (selectedBoyId != null) {
+        print('LOG: Auto-assigning order $orderId to delivery boy $selectedBoyId with load $minLoad');
+        await assignDelivery(orderId, selectedBoyId);
+      }
+    } catch (e) {
+      print('ERROR: Auto-assignment failed for order $orderId: $e');
+    }
   }
 
   Future<void> updateOrderStatus(String orderId, String status) async {

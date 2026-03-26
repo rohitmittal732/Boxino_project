@@ -67,10 +67,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                           shape: BoxShape.circle,
                         ),
                         child: const Center(
-                          child: Icon(
-                            Icons.lunch_dining_rounded,
-                            size: 56,
-                            color: AppTheme.deepOrange,
+                          child: ClipOval(
+                            child: Image(
+                              image: AssetImage('assets/images/app_logo.png'),
+                              width: 80,
+                              height: 80,
+                              fit: BoxFit.cover,
+                            ),
                           ),
                         ),
                       ),

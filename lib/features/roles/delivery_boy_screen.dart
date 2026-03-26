@@ -5,6 +5,8 @@ import 'package:boxino/core/theme/app_theme.dart';
 import 'package:boxino/core/providers/app_providers.dart';
 import 'package:boxino/domain/models/app_models.dart';
 
+import 'package:geolocator/geolocator.dart';
+
 class DeliveryBoyScreen extends ConsumerStatefulWidget {
   const DeliveryBoyScreen({super.key});
 
@@ -30,23 +32,39 @@ class _DeliveryBoyScreenState extends ConsumerState<DeliveryBoyScreen> {
     }
   }
 
-  void _startLocationUpdates() {
+  void _startLocationUpdates() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enable location services')));
+      return;
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) return;
+    }
+
     _locationTimer?.cancel();
-    _locationTimer = Timer.periodic(const Duration(seconds: 5), (timer) async {
+    // Throttle updates to 10 seconds to save battery and reduce DB writes
+    _locationTimer = Timer.periodic(const Duration(seconds: 10), (timer) async {
       final deliveries = ref.read(deliveryOrdersProvider).value ?? [];
       final service = ref.read(supabaseServiceProvider);
 
       final activeDeliveries = deliveries.where((d) => d.status == 'on_the_way').toList();
       if (activeDeliveries.isEmpty) return;
 
-      // Update in parallel to avoid blocking the loop
-      await Future.wait(activeDeliveries.map((d) {
-        final newLat = 26.9124 + (timer.tick * 0.0001);
-        final newLng = 75.7873 + (timer.tick * 0.0001);
-        return service.updateLiveLocation(d.id, newLat, newLng);
-      }));
-      
-      print('DEBUG: DeliveryBoy: Updated location for ${activeDeliveries.length} orders');
+      try {
+        final position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+        
+        await Future.wait(activeDeliveries.map((d) {
+          return service.updateLiveLocation(d.id, position.latitude, position.longitude);
+        }));
+        
+        print('DEBUG: Updated real GPS location for ${activeDeliveries.length} orders');
+      } catch (e) {
+        print('DEBUG: Location error: $e');
+      }
     });
   }
 
@@ -58,7 +76,7 @@ class _DeliveryBoyScreenState extends ConsumerState<DeliveryBoyScreen> {
     final userId = ref.watch(currentUserProvider);
 
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         backgroundColor: AppTheme.background,
         appBar: AppBar(
@@ -89,6 +107,7 @@ class _DeliveryBoyScreenState extends ConsumerState<DeliveryBoyScreen> {
             tabs: [
               Tab(text: 'My Tasks', icon: Icon(Icons.delivery_dining)),
               Tab(text: 'New Orders', icon: Icon(Icons.new_releases)),
+              Tab(text: 'Earnings', icon: Icon(Icons.account_balance_wallet)),
             ],
           ),
         ),
@@ -140,9 +159,73 @@ class _DeliveryBoyScreenState extends ConsumerState<DeliveryBoyScreen> {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, s) => Center(child: Text('Error: $e')),
             ),
+            
+            // Tab 3: Earnings
+            deliveriesAsync.when(
+              data: (deliveries) {
+                // Here we cheat a bit since the initial provider filters out 'delivered'. 
+                // We'd ideally need a new provider for history, but assuming we fetch all deliveries or the backend provides a summary stream. 
+                // For MVP UI, we'll just show a placeholder static view since a dedicated fetch for delivered is needed.
+                return const DeliveryEarningsTab();
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, s) => Center(child: Text('Error: $e')),
+            ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class DeliveryEarningsTab extends ConsumerWidget {
+  const DeliveryEarningsTab({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userId = ref.watch(currentUserProvider);
+    if (userId == null) return const SizedBox();
+
+    // Use a Future for fetching true history directly from Supabase
+    return FutureBuilder<List<dynamic>>(
+      future: Supabase.instance.client.from('deliveries').select().eq('delivery_boy_id', userId).eq('status', 'delivered'),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        
+        final completed = snapshot.data ?? [];
+        final totalCount = completed.length;
+        final estEarnings = totalCount * 30; // ₹30 per delivery flat rate
+
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [AppTheme.primaryOrange, AppTheme.deepOrange]),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: AppTheme.cardShadow,
+              ),
+              child: Column(
+                children: [
+                  const Text('Total Estimated Earnings', style: TextStyle(color: Colors.white70, fontSize: 16)),
+                  const SizedBox(height: 8),
+                  Text('₹$estEarnings', style: const TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: ListTile(
+                leading: const Icon(Icons.check_circle, color: AppTheme.primaryGreen, size: 32),
+                title: const Text('Total Deliveries Completed', style: TextStyle(fontWeight: FontWeight.bold)),
+                trailing: Text('$totalCount', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.primaryGreen)),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -197,7 +280,14 @@ class DeliveryCard extends ConsumerWidget {
   }
 
   void _showStatusDialog(BuildContext context, WidgetRef ref, DeliveryModel delivery) {
-    final statuses = ['accepted', 'picked_up', 'on_the_way', 'delivered'];
+    final allStatuses = ['accepted', 'picked_up', 'on_the_way', 'delivered'];
+    final currentIndex = allStatuses.indexOf(delivery.status);
+    
+    // Only show current status and the immediately next status to enforce linear flow
+    final statuses = allStatuses.where((s) {
+      final idx = allStatuses.indexOf(s);
+      return idx == currentIndex || idx == currentIndex + 1;
+    }).toList();
     
     showModalBottomSheet(
       context: context,
@@ -206,6 +296,24 @@ class DeliveryCard extends ConsumerWidget {
         children: statuses.map((s) => ListTile(
           title: Text(s.replaceAll('_', ' ').toUpperCase()),
           onTap: () async {
+            if (s == 'delivered') {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (c) => AlertDialog(
+                  title: const Text('Cash Collected?'),
+                  content: const Text('Please confirm that you have collected the cash from the customer before marking this as delivered.'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('No')),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryGreen),
+                      onPressed: () => Navigator.pop(c, true),
+                      child: const Text('Yes, Collected'),
+                    ),
+                  ],
+                ),
+              );
+              if (confirmed != true) return;
+            }
             await ref.read(supabaseServiceProvider).updateDeliveryStatus(delivery.id, s);
             ref.invalidate(deliveryOrdersProvider);
             if (context.mounted) Navigator.pop(context);

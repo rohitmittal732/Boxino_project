@@ -5,14 +5,78 @@ import 'package:boxino/core/theme/app_theme.dart';
 import 'package:boxino/core/providers/app_providers.dart';
 import 'package:boxino/domain/models/app_models.dart';
 
-class OrderSummaryScreen extends ConsumerWidget {
+class OrderSummaryScreen extends ConsumerStatefulWidget {
   const OrderSummaryScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<OrderSummaryScreen> createState() => _OrderSummaryScreenState();
+}
+
+class _OrderSummaryScreenState extends ConsumerState<OrderSummaryScreen> {
+  bool _isLoading = false;
+
+  void _placeOrder() async {
+    final cart = ref.read(cartProvider);
+    final cartNotifier = ref.read(cartProvider.notifier);
+    final userId = ref.read(currentUserProvider);
+
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please login to place an order.')),
+      );
+      return;
+    }
+    
+    setState(() => _isLoading = true);
+    
+    try {
+      final kitchenId = cart.values.first.menu.kitchenId;
+      final items = cart.values.map((e) => {
+        'name': e.menu.name,
+        'quantity': e.quantity,
+        'price': e.menu.price,
+      }).toList();
+
+      final order = OrderModel(
+        id: '', 
+        userId: userId,
+        kitchenId: kitchenId,
+        items: items,
+        totalPrice: cartNotifier.total,
+        status: 'pending',
+        createdAt: DateTime.now(),
+        // TODO: Map picking address
+        userAddress: 'Jaipur, Rajasthan',
+        paymentMethod: 'cash',
+        paymentStatus: 'pending',
+      );
+
+      final orderId = await ref.read(supabaseServiceProvider).createOrder(order);
+      
+      cartNotifier.clear();
+      if (mounted) {
+        context.go('/order-success', extra: orderId);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Order failed: ${e.toString().replaceAll('Exception: ', '')}'),
+            backgroundColor: AppTheme.errorRed,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final cart = ref.watch(cartProvider);
     final cartNotifier = ref.read(cartProvider.notifier);
-    final userId = ref.watch(currentUserProvider);
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -91,53 +155,17 @@ class OrderSummaryScreen extends ConsumerWidget {
                       const SizedBox(height: 24),
                       SizedBox(
                         width: double.infinity,
+                        height: 56, // fixed height for loading alignment
                         child: ElevatedButton(
-                          onPressed: () async {
-                            if (userId == null) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Please login to place an order.')),
-                              );
-                              return;
-                            }
-                            
-                            try {
-                              final kitchenId = cart.values.first.menu.kitchenId;
-                              final items = cart.values.map((e) => {
-                                'name': e.menu.name,
-                                'quantity': e.quantity,
-                                'price': e.menu.price,
-                              }).toList();
-
-                              final order = OrderModel(
-                                id: '', 
-                                userId: userId,
-                                kitchenId: kitchenId,
-                                items: items,
-                                totalPrice: cartNotifier.total,
-                                status: 'pending',
-                                createdAt: DateTime.now(),
-                                userAddress: 'Jaipur, Rajasthan',
-                              );
-
-                              final orderId = await ref.read(supabaseServiceProvider).createOrder(order);
-                              
-                              cartNotifier.clear();
-                              if (context.mounted) {
-                                context.push('/order-success', extra: orderId);
-                              }
-                            } catch (e) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Error: $e')),
-                              );
-                            }
-                          },
+                          onPressed: _isLoading ? null : _placeOrder,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.primaryOrange,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           ),
-                          child: const Text('Place Order', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          child: _isLoading 
+                              ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+                              : const Text('Place Order (Cash)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                         ),
                       ),
                     ],
