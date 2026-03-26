@@ -412,6 +412,7 @@ class _AdminOrdersTabState extends ConsumerState<AdminOrdersTab> {
           );
         },
       ),
+      },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, s) => Center(child: Text('Error: $e')),
     ),
