@@ -1,14 +1,20 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+<<<<<<< HEAD
 import 'package:supabase_flutter/supabase_flutter.dart';
+=======
+>>>>>>> a59414e02a835213c0343f758d0b64ec2ddfa6e2
 import 'package:boxino/core/theme/app_theme.dart';
 import 'package:boxino/core/providers/app_providers.dart';
 import 'package:boxino/domain/models/app_models.dart';
 
 import 'package:geolocator/geolocator.dart';
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> a59414e02a835213c0343f758d0b64ec2ddfa6e2
 class DeliveryBoyScreen extends ConsumerStatefulWidget {
   const DeliveryBoyScreen({super.key});
 

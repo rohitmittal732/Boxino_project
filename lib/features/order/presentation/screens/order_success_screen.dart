@@ -3,7 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:boxino/core/theme/app_theme.dart';
 
 class OrderSuccessScreen extends StatelessWidget {
-  const OrderSuccessScreen({super.key});
+  final String orderId;
+  const OrderSuccessScreen({super.key, required this.orderId});
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +52,7 @@ class OrderSuccessScreen extends StatelessWidget {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
-                      context.push('/order-tracking');
+                      context.push('/order-tracking', extra: orderId);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryOrange,

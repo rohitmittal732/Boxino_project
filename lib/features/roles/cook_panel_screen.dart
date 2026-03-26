@@ -32,9 +32,9 @@ class CookPanelScreen extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
+                  const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       Text('Kitchen Status', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                       Text('Accepting new orders', style: TextStyle(color: Colors.grey, fontSize: 12)),
                     ],
@@ -42,7 +42,7 @@ class CookPanelScreen extends StatelessWidget {
                   Switch(
                     value: true,
                     onChanged: (val) {},
-                    activeColor: AppTheme.primaryGreen,
+                    activeThumbColor: AppTheme.primaryGreen,
                   ),
                 ],
               ),

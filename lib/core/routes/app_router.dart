@@ -1,8 +1,24 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// App Router — GoRouter with auth-based redirect guards.
+//
+// GUARDS:
+//   • Protected routes (/home, /profile-setup, /kitchen-detail, /subscription,
+//     /order-summary, /order-success, /order-tracking):
+//     → Redirect to /login if user has no active session.
+//   • Auth routes (/login, /signup):
+//     → Redirect to /home if user already has an active session.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:boxino/core/providers/auth_notifier.dart';
+import 'package:boxino/core/providers/app_providers.dart';
 import 'package:boxino/features/auth/presentation/screens/splash_screen.dart';
 import 'package:boxino/features/auth/presentation/screens/login_screen.dart';
 import 'package:boxino/features/auth/presentation/screens/signup_screen.dart';
+import 'package:boxino/features/auth/presentation/screens/forgot_password_screen.dart';
 import 'package:boxino/features/profile/presentation/screens/profile_setup_screen.dart';
 import 'package:boxino/features/home/presentation/screens/home_screen.dart';
 import 'package:boxino/features/kitchen/presentation/screens/kitchen_detail_screen.dart';
@@ -10,9 +26,109 @@ import 'package:boxino/features/subscription/presentation/screens/subscription_s
 import 'package:boxino/features/order/presentation/screens/order_summary_screen.dart';
 import 'package:boxino/features/order/presentation/screens/order_success_screen.dart';
 import 'package:boxino/features/order/presentation/screens/order_tracking_screen.dart';
+import 'package:boxino/features/order/presentation/screens/order_history_screen.dart';
+import 'package:boxino/features/order/presentation/screens/plans_screen.dart';
+import 'package:boxino/features/profile/presentation/screens/profile_screen.dart';
+import 'package:boxino/features/roles/admin_panel_screen.dart';
+import 'package:boxino/features/roles/delivery_boy_screen.dart';
+import 'package:boxino/features/home/presentation/screens/map_screen.dart';
+import 'package:boxino/domain/models/app_models.dart';
 
-final GoRouter appRouter = GoRouter(
-  initialLocation: '/',
+// ── Auth helper ─────────────────────────────────────────────────────────────
+bool get _isAuthenticated =>
+    Supabase.instance.client.auth.currentSession != null;
+
+// ── Protected routes — require auth ─────────────────────────────────────────
+const _protectedRoutes = [
+  '/home',
+  '/history',
+  '/plans',
+  '/profile',
+  '/kitchen-detail',
+  '/order-summary',
+  '/order-success',
+  '/order-tracking',
+  '/admin',
+  '/delivery',
+];
+
+// ── Auth-only routes — redirect away if already logged in ───────────────────
+const _authRoutes = ['/login', '/signup', '/forgot-password'];
+
+// ── Router Notifier ──────────────────────────────────────────────────────────
+class RouterNotifier extends ChangeNotifier {
+  final Ref _ref;
+  RouterNotifier(this._ref) {
+    _ref.listen(authNotifierProvider, (previous, next) {
+      if (next.isAuthenticated) {
+        // Pre-fetch profile/role to warm the cache for the router
+        _ref.read(userProfileProvider.future);
+      }
+      notifyListeners();
+    });
+  }
+}
+
+final routerNotifierProvider = Provider<RouterNotifier>((ref) => RouterNotifier(ref));
+
+final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
+  final notifier = ref.watch(routerNotifierProvider);
+
+  return GoRouter(
+    initialLocation: '/',
+    refreshListenable: notifier,
+    redirect: (context, state) async {
+      final location = state.matchedLocation;
+      final authenticated = Supabase.instance.client.auth.currentSession != null;
+
+      // 1. Unauthenticated users go to login if trying to access protected routes
+      if (_protectedRoutes.any((r) => location.startsWith(r))) {
+        if (!authenticated) {
+          print('DEBUG: AppRouter: Unauthenticated user, redirecting to /login');
+          return '/login';
+        }
+      }
+
+      // 2. Authenticated users
+      if (authenticated) {
+        try {
+          final profile = ref.read(userProfileProvider).value;
+          String? role = profile?.role;
+
+          if (role == null) {
+            print('DEBUG: AppRouter: Role not in cache, fetching...');
+            role = await ref.read(userRoleProvider.future).timeout(
+              const Duration(milliseconds: 700),
+              onTimeout: () => 'user',
+            );
+          }
+
+          print('DEBUG: AppRouter: Resolved role: $role');
+          
+          // Prevent auth pages while logged in
+          if (_authRoutes.contains(location)) {
+            if (role == 'admin') return '/admin';
+            if (role == 'delivery') return '/delivery';
+            return '/home';
+          }
+
+          // Role-based protection
+          if (location == '/admin' && role != 'admin') return '/home';
+          if (location == '/delivery' && role != 'delivery') return '/home';
+          
+          // If on root (Splash), send to correct home
+          if (location == '/') {
+            if (role == 'admin') return '/admin';
+            if (role == 'delivery') return '/delivery';
+            return '/home';
+          }
+        } catch (e) {
+          if (_authRoutes.contains(location)) return '/home';
+        }
+      }
+
+      return null;
+    },
   routes: [
     GoRoute(
       path: '/',
@@ -31,30 +147,66 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) => const ProfileSetupScreen(),
     ),
     GoRoute(
+      path: '/forgot-password',
+      builder: (context, state) => const ForgotPasswordScreen(),
+    ),
+    GoRoute(
       path: '/home',
       builder: (context, state) => const HomeScreen(),
     ),
     GoRoute(
+      path: '/history',
+      builder: (context, state) => const OrderHistoryScreen(), // NEW
+    ),
+    GoRoute(
+      path: '/plans',
+      builder: (context, state) => const PlansScreen(), // NEW
+    ),
+    GoRoute(
+      path: '/profile',
+      builder: (context, state) => const ProfileScreen(), // NEW
+    ),
+    GoRoute(
       path: '/kitchen-detail',
-      builder: (context, state) => const KitchenDetailScreen(),
+      builder: (context, state) {
+        final kitchen = state.extra as KitchenModel;
+        return KitchenDetailScreen(kitchen: kitchen);
+      },
+    ),
+    GoRoute(
+      path: '/order-summary',
+      builder: (context, state) => const OrderSummaryScreen(),
+    ),
+    GoRoute(
+      path: '/order-success',
+      builder: (context, state) {
+        final orderId = state.extra as String;
+        return OrderSuccessScreen(orderId: orderId);
+      },
+    ),
+    GoRoute(
+      path: '/order-tracking',
+      builder: (context, state) {
+        final orderId = state.extra as String;
+        return OrderTrackingScreen(orderId: orderId);
+      },
+    ),
+    GoRoute(
+      path: '/admin',
+      builder: (context, state) => const AdminPanelScreen(),
+    ),
+    GoRoute(
+      path: '/delivery',
+      builder: (context, state) => const DeliveryBoyScreen(),
     ),
     GoRoute(
       path: '/subscription',
       builder: (context, state) => const SubscriptionScreen(),
     ),
     GoRoute(
-      path: '/order-summary',
-      builder: (context, state) => OrderSummaryScreen(
-        orderData: state.extra as Map<String, dynamic>? ?? {},
-      ),
-    ),
-    GoRoute(
-      path: '/order-success',
-      builder: (context, state) => const OrderSuccessScreen(),
-    ),
-    GoRoute(
-      path: '/order-tracking',
-      builder: (context, state) => const OrderTrackingScreen(),
+      path: '/map',
+      builder: (context, state) => const MapScreen(),
     ),
   ],
 );
+});
