@@ -95,7 +95,7 @@ class KitchenModel {
   }
 
   Map<String, dynamic> toJson() {
-    final map = {
+    final Map<String, dynamic> map = {
       'name': name,
       'image_url': imageUrl,
       'rating': rating,
@@ -145,7 +145,7 @@ class MenuModel {
   }
 
   Map<String, dynamic> toJson() {
-    final map = {
+    final Map<String, dynamic> map = {
       'kitchen_id': kitchenId,
       'name': name,
       'description': description,
@@ -216,7 +216,7 @@ class OrderModel {
   }
 
   Map<String, dynamic> toJson() {
-    final map = {
+    final Map<String, dynamic> map = {
       'user_id': userId,
       'kitchen_id': kitchenId,
       'items': items,
@@ -265,7 +265,7 @@ class DeliveryModel {
   }
 
   Map<String, dynamic> toJson() {
-    final map = {
+    final Map<String, dynamic> map = {
       'order_id': orderId,
       'delivery_boy_id': deliveryBoyId,
       'status': status,

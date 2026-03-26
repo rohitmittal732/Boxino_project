@@ -144,7 +144,7 @@ class _DeliveryBoyScreenState extends ConsumerState<DeliveryBoyScreen> {
                     return Card(
                       margin: const EdgeInsets.only(bottom: 16),
                       child: ListTile(
-                        title: Text('Order #${order.id.substring(0, 8)}'),
+                        title: Text('Order #${order.id.length > 8 ? order.id.substring(0, 8) : order.id}'),
                         subtitle: Text('Total: ₹${order.totalPrice}\nAddress: ${order.userAddress}'),
                         trailing: ElevatedButton(
                           onPressed: isOnline && userId != null 
@@ -249,7 +249,7 @@ class DeliveryCard extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Order ID: ${delivery.orderId.substring(0, 8)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text('Order ID: ${delivery.orderId.length > 8 ? delivery.orderId.substring(0, 8) : delivery.orderId}', style: const TextStyle(fontWeight: FontWeight.bold)),
                 _buildStatusBadge(delivery.status),
               ],
             ),

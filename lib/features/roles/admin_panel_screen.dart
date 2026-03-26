@@ -363,7 +363,7 @@ class _AdminOrdersTabState extends ConsumerState<AdminOrdersTab> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Order #${o.id.substring(0, 8)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Text('Order #${o.id.length > 8 ? o.id.substring(0, 8) : o.id}', style: const TextStyle(fontWeight: FontWeight.bold)),
                       Text('₹${o.totalPrice}', style: const TextStyle(color: AppTheme.primaryOrange, fontWeight: FontWeight.bold)),
                     ],
                   ),
