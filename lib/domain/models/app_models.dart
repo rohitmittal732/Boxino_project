@@ -107,8 +107,9 @@ class OrderModel {
   final String planType; // 'Daily', 'Weekly', 'Monthly'
   final String mealType; // 'Lunch', 'Dinner'
   final double price;
-  final String status; // 'Pending', 'Preparing', 'Out for Delivery', 'Delivered'
+  final String status; // 'pending', 'preparing', 'on_the_way', 'delivered'
   final String deliveryTime;
+  final String? userAddress;
 
   OrderModel({
     required this.id,
@@ -121,7 +122,11 @@ class OrderModel {
     required this.price,
     required this.status,
     required this.deliveryTime,
+    this.userAddress,
   });
+
+  /// Alias so delivery screen can use [totalPrice] interchangeably with [price].
+  double get totalPrice => price;
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
     return OrderModel(
@@ -135,8 +140,48 @@ class OrderModel {
       price: (json['price'] as num).toDouble(),
       status: json['status'] as String,
       deliveryTime: json['delivery_time'] as String? ?? '',
+      userAddress: json['user_address'] as String?,
     );
   }
+}
+
+/// Represents a delivery record assigned to a delivery boy.
+class DeliveryModel {
+  final String id;
+  final String orderId;
+  final String deliveryBoyId;
+  final String status; // 'accepted', 'picked_up', 'on_the_way', 'delivered'
+  final double? lat;
+  final double? lng;
+
+  DeliveryModel({
+    required this.id,
+    required this.orderId,
+    required this.deliveryBoyId,
+    required this.status,
+    this.lat,
+    this.lng,
+  });
+
+  factory DeliveryModel.fromJson(Map<String, dynamic> json) {
+    return DeliveryModel(
+      id: json['id'] as String,
+      orderId: json['order_id'] as String,
+      deliveryBoyId: json['delivery_boy_id'] as String,
+      status: json['status'] as String,
+      lat: (json['lat'] as num?)?.toDouble(),
+      lng: (json['lng'] as num?)?.toDouble(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'order_id': orderId,
+        'delivery_boy_id': deliveryBoyId,
+        'status': status,
+        'lat': lat,
+        'lng': lng,
+      };
 }
 
 class SubscriptionModel {

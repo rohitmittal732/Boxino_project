@@ -54,6 +54,20 @@ class SupabaseService {
     }
   }
 
+  /// Sends a 6-digit OTP to the user's email.
+  Future<void> sendEmailOtp(String email) async {
+    await _client.auth.signInWithOtp(email: email);
+  }
+
+  /// Verifies the 6-digit OTP entered by the user.
+  Future<AuthResponse> verifyEmailOtp(String email, String otp) async {
+    return await _client.auth.verifyOTP(
+      email: email,
+      token: otp,
+      type: OtpType.email,
+    );
+  }
+
   /// Sign in with Google (via Supabase OAuth)
   Future<bool> signInWithGoogle() async {
     return await _client.auth.signInWithOAuth(
@@ -143,4 +157,61 @@ class SupabaseService {
       'end_date': sub.endDate.toIso8601String(),
     });
   }
+
+  // ─── DELIVERY BOY METHODS ───────────────────────────────────
+
+  /// Returns active (non-delivered) deliveries assigned to [deliveryBoyId].
+  Future<List<DeliveryModel>> getActiveDeliveries(String deliveryBoyId) async {
+    final response = await _client
+        .from('deliveries')
+        .select()
+        .eq('delivery_boy_id', deliveryBoyId)
+        .neq('status', 'delivered')
+        .order('created_at', ascending: false);
+    return (response as List).map((d) => DeliveryModel.fromJson(d)).toList();
+  }
+
+  /// Returns orders in 'pending' status with no delivery boy assigned.
+  Future<List<OrderModel>> getPendingOrders() async {
+    final response = await _client
+        .from('Orders')
+        .select()
+        .eq('status', 'pending')
+        .isFilter('delivery_boy_id', null)
+        .order('created_at', ascending: false);
+    return (response as List).map((d) => OrderModel.fromJson(d)).toList();
+  }
+
+  /// Assigns [deliveryBoyId] to an order and creates a delivery record.
+  Future<void> acceptOrder(String orderId, String deliveryBoyId) async {
+    // Update the order status and assign the delivery boy
+    await _client
+        .from('Orders')
+        .update({'status': 'accepted', 'delivery_boy_id': deliveryBoyId})
+        .eq('id', orderId);
+    // Insert a delivery tracking row
+    await _client.from('deliveries').upsert({
+      'order_id': orderId,
+      'delivery_boy_id': deliveryBoyId,
+      'status': 'accepted',
+    });
+  }
+
+  /// Updates the [status] of a delivery record by [deliveryId].
+  Future<void> updateDeliveryStatus(String deliveryId, String status) async {
+    await _client
+        .from('deliveries')
+        .update({'status': status})
+        .eq('id', deliveryId);
+  }
+
+  /// Pushes the current GPS coordinates for a delivery record.
+  Future<void> updateLiveLocation(
+      String deliveryId, double lat, double lng) async {
+    await _client
+        .from('deliveries')
+        .update({'lat': lat, 'lng': lng})
+        .eq('id', deliveryId);
+  }
 }
+

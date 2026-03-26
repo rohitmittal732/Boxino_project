@@ -9,6 +9,10 @@ final supabaseServiceProvider = Provider<SupabaseService>((ref) {
   return SupabaseService();
 });
 
+// ─── OTP Email Provider ───────────────────────────────────────
+/// Stores the email address during the OTP flow.
+final otpEmailProvider = StateProvider<String>((ref) => '');
+
 // ─── Auth State Stream (reactive) ─────────────────────────────
 /// Streams auth state changes: logged-in, logged-out, token refresh, etc.
 final authStateProvider = StreamProvider<AuthState>((ref) {
@@ -69,4 +73,25 @@ final userOrdersProvider = FutureProvider<List<OrderModel>>((ref) async {
 final liveOrderStreamProvider = StreamProvider.family<List<Map<String, dynamic>>, String>((ref, orderId) {
   final service = ref.read(supabaseServiceProvider);
   return service.getLiveOrderStream(orderId);
+});
+
+// ─── Delivery Boy: Online Status ──────────────────────────────
+/// Tracks whether the delivery boy has toggled themselves online.
+final isOnlineProvider = StateProvider<bool>((ref) => false);
+
+// ─── Delivery Boy: Active Deliveries ─────────────────────────
+/// Fetches deliveries assigned to the current delivery boy that are not yet
+/// marked as 'delivered'.
+final deliveryOrdersProvider = FutureProvider<List<DeliveryModel>>((ref) async {
+  final userId = ref.watch(currentUserProvider);
+  if (userId == null) return [];
+  final service = ref.read(supabaseServiceProvider);
+  return await service.getActiveDeliveries(userId);
+});
+
+// ─── Delivery Boy: Pending Orders ─────────────────────────────
+/// Fetches orders in 'pending' status that have no delivery boy assigned yet.
+final pendingOrdersProvider = FutureProvider<List<OrderModel>>((ref) async {
+  final service = ref.read(supabaseServiceProvider);
+  return await service.getPendingOrders();
 });
