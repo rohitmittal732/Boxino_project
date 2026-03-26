@@ -414,7 +414,10 @@ class _AdminOrdersTabState extends ConsumerState<AdminOrdersTab> {
       ),
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, s) => Center(child: Text('Error: $e')),
-    ));
+    ),
+  ),
+      ],
+    );
   }
 
   void _showAssignDialog(BuildContext context, WidgetRef ref, String orderId, List<UserModel> deliveryBoys) {
