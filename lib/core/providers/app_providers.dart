@@ -130,28 +130,6 @@ final liveOrderStreamProvider = StreamProvider.family<List<Map<String, dynamic>>
   return service.getLiveOrderStream(orderId);
 });
 
-<<<<<<< HEAD
-// ─── Delivery Boy: Online Status ──────────────────────────────
-/// Tracks whether the delivery boy has toggled themselves online.
-final isOnlineProvider = StateProvider<bool>((ref) => false);
-
-// ─── Delivery Boy: Active Deliveries ─────────────────────────
-/// Fetches deliveries assigned to the current delivery boy that are not yet
-/// marked as 'delivered'.
-final deliveryOrdersProvider = FutureProvider<List<DeliveryModel>>((ref) async {
-  final userId = ref.watch(currentUserProvider);
-  if (userId == null) return [];
-  final service = ref.read(supabaseServiceProvider);
-  return await service.getActiveDeliveries(userId);
-});
-
-// ─── Delivery Boy: Pending Orders ─────────────────────────────
-/// Fetches orders in 'pending' status that have no delivery boy assigned yet.
-final pendingOrdersProvider = FutureProvider<List<OrderModel>>((ref) async {
-  final service = ref.read(supabaseServiceProvider);
-  return await service.getPendingOrders();
-});
-=======
 // ─── Live Delivery Stream Provider (Family) ───────────────────
 final liveDeliveryStreamProvider = StreamProvider.family<List<DeliveryModel>, String>((ref, orderId) {
   final service = ref.read(supabaseServiceProvider);
@@ -234,4 +212,3 @@ final cartProvider = StateNotifierProvider<CartNotifier, Map<String, CartItem>>(
 
 // ─── Delivery Online Status ──────────────────────────────────
 final isOnlineProvider = StateProvider<bool>((ref) => false);
->>>>>>> a59414e02a835213c0343f758d0b64ec2ddfa6e2

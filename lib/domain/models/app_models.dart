@@ -162,16 +162,6 @@ class OrderModel {
   final String id;
   final String userId;
   final String kitchenId;
-<<<<<<< HEAD
-  final String items; // JSON encoded string or text
-  final String customization;
-  final String planType; // 'Daily', 'Weekly', 'Monthly'
-  final String mealType; // 'Lunch', 'Dinner'
-  final double price;
-  final String status; // 'pending', 'preparing', 'on_the_way', 'delivered'
-  final String deliveryTime;
-  final String? userAddress;
-=======
   final List<dynamic> items; 
   final double totalPrice;
   final String status; // 'pending', 'accepted', 'preparing', 'out_for_delivery', 'delivered'
@@ -179,7 +169,12 @@ class OrderModel {
   final String userAddress;
   final String paymentMethod; // 'cash', 'online'
   final String paymentStatus; // 'pending', 'paid'
->>>>>>> a59414e02a835213c0343f758d0b64ec2ddfa6e2
+  
+  // Legacy fields for UI compatibility
+  final String? customization;
+  final String? planType;
+  final String? mealType;
+  final String? deliveryTime;
 
   OrderModel({
     required this.id,
@@ -188,43 +183,35 @@ class OrderModel {
     required this.items,
     required this.totalPrice,
     required this.status,
-<<<<<<< HEAD
-    required this.deliveryTime,
-    this.userAddress,
-=======
     required this.createdAt,
     required this.userAddress,
     this.paymentMethod = 'cash',
     this.paymentStatus = 'pending',
->>>>>>> a59414e02a835213c0343f758d0b64ec2ddfa6e2
+    this.customization,
+    this.planType,
+    this.mealType,
+    this.deliveryTime,
   });
 
-  /// Alias so delivery screen can use [totalPrice] interchangeably with [price].
-  double get totalPrice => price;
+  /// Alias so delivery screen can use [totalPrice] interchangeably with [price]
+  double get price => totalPrice;
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
     return OrderModel(
       id: json['id'] as String,
       userId: json['user_id'] as String,
-      kitchenId: json['kitchen_id'] as String,
-<<<<<<< HEAD
-      items: json['items'] as String,
-      customization: json['customization'] as String? ?? '',
-      planType: json['plan_type'] as String,
-      mealType: json['meal_type'] as String,
-      price: (json['price'] as num).toDouble(),
-      status: json['status'] as String,
-      deliveryTime: json['delivery_time'] as String? ?? '',
-      userAddress: json['user_address'] as String?,
-=======
-      items: json['items'] as List? ?? [],
-      totalPrice: (json['total_price'] as num).toDouble(),
+      kitchenId: json['kitchen_id'] as String? ?? '',
+      items: json['items'] is List ? json['items'] as List : (json['items'] is String ? [json['items']] : []),
+      totalPrice: (json['total_price'] as num?)?.toDouble() ?? (json['price'] as num?)?.toDouble() ?? 0.0,
       status: json['status'] as String? ?? 'pending',
-      createdAt: DateTime.parse(json['created_at'] as String),
+      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : DateTime.now(),
       userAddress: json['user_address'] as String? ?? '',
       paymentMethod: json['payment_method'] as String? ?? 'cash',
       paymentStatus: json['payment_status'] as String? ?? 'pending',
->>>>>>> a59414e02a835213c0343f758d0b64ec2ddfa6e2
+      customization: json['customization'] as String?,
+      planType: json['plan_type'] as String?,
+      mealType: json['meal_type'] as String?,
+      deliveryTime: json['delivery_time'] as String?,
     );
   }
 
@@ -233,7 +220,7 @@ class OrderModel {
       'user_id': userId,
       'kitchen_id': kitchenId,
       'items': items,
-      'total_price': totalPrice.toInt(),
+      'total_price': totalPrice,
       'status': status,
       'created_at': createdAt.toIso8601String(),
       'user_address': userAddress,
@@ -241,54 +228,15 @@ class OrderModel {
       'payment_status': paymentStatus,
     };
     if (id.isNotEmpty) map['id'] = id;
+    if (customization != null) map['customization'] = customization;
+    if (planType != null) map['plan_type'] = planType;
+    if (mealType != null) map['meal_type'] = mealType;
+    if (deliveryTime != null) map['delivery_time'] = deliveryTime;
     return map;
   }
 }
 
-<<<<<<< HEAD
-/// Represents a delivery record assigned to a delivery boy.
 class DeliveryModel {
-  final String id;
-  final String orderId;
-  final String deliveryBoyId;
-  final String status; // 'accepted', 'picked_up', 'on_the_way', 'delivered'
-  final double? lat;
-  final double? lng;
-
-  DeliveryModel({
-    required this.id,
-    required this.orderId,
-    required this.deliveryBoyId,
-    required this.status,
-    this.lat,
-    this.lng,
-  });
-
-  factory DeliveryModel.fromJson(Map<String, dynamic> json) {
-    return DeliveryModel(
-      id: json['id'] as String,
-      orderId: json['order_id'] as String,
-      deliveryBoyId: json['delivery_boy_id'] as String,
-      status: json['status'] as String,
-      lat: (json['lat'] as num?)?.toDouble(),
-      lng: (json['lng'] as num?)?.toDouble(),
-    );
-  }
-
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'order_id': orderId,
-        'delivery_boy_id': deliveryBoyId,
-        'status': status,
-        'lat': lat,
-        'lng': lng,
-      };
-}
-
-class SubscriptionModel {
-=======
-class DeliveryModel {
->>>>>>> a59414e02a835213c0343f758d0b64ec2ddfa6e2
   final String id;
   final String orderId;
   final String deliveryBoyId;

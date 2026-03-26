@@ -97,11 +97,7 @@ class AuthNotifier extends StateNotifier<AuthStateModel> {
     dev.log('Attempting signup for: $email', name: 'Auth');
 
     try {
-<<<<<<< HEAD
-      final response = await _service.signUpWithEmailAndName(email, password, name);
-=======
       final response = await _service.signUpWithEmail(email, password, name);
->>>>>>> a59414e02a835213c0343f758d0b64ec2ddfa6e2
       
       if (response.user != null) {
         dev.log('Signup successful for ${response.user!.email}', name: 'Auth');
