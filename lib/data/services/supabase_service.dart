@@ -2,7 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../domain/models/app_models.dart';
 
 class SupabaseService {
-  final SupabaseClient _client = Supabase.instance.client;
+  SupabaseClient get _client => Supabase.instance.client;
 
   //////////////////
   /// AUTH Logic ///
@@ -54,7 +54,13 @@ class SupabaseService {
     );
   }
 
-  User? get currentUser => _client.auth.currentUser;
+  User? get currentUser {
+    try {
+      return _client.auth.currentUser;
+    } catch (_) {
+      return null;
+    }
+  }
 
   ////////////////////
   /// DB QUERIES /////

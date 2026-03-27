@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:boxino/core/theme/app_theme.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -33,6 +35,34 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     );
 
     _controller.forward();
+    _initApp();
+  }
+
+  Future<void> _initApp() async {
+    try {
+      // Async initialization without blocking the UI thread on cold start
+      await Supabase.initialize(
+        url: 'https://zmaddsjqbbbikaqkfmqo.supabase.co',
+        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InptYWRkc2pxYmJiaWthcWtmbXFvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzNTk2NDgsImV4cCI6MjA4OTkzNTY0OH0.EZ-yStIUwKBjIwZNxXveu1S0p2XiqH3C0XRnNaeFCA8',
+      );
+
+      // Ensure splash is visible for at least 1.4s (animation duration)
+      await Future.delayed(const Duration(milliseconds: 1400));
+
+      if (!mounted) return;
+
+      final session = Supabase.instance.client.auth.currentSession;
+      if (session != null) {
+        // This will allow GoRouter's redirect guard to route users
+        // to /home, /admin, or /delivery based on their role
+        context.go('/home');
+      } else {
+        context.go('/login');
+      }
+    } catch (e) {
+      debugPrint('Initialization error: $e');
+      if (mounted) context.go('/login');
+    }
   }
 
   @override
