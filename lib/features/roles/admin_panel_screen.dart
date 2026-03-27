@@ -911,11 +911,13 @@ class AdminProfileTab extends ConsumerWidget {
                     ListTile(
                       leading: const Icon(Icons.logout, color: Colors.red),
                       title: const Text('Logout Securely', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-                      onTap: () {
-                        ref.read(authNotifierProvider.notifier).signOut();
+                      onTap: () async {
+                        await ref.read(authNotifierProvider.notifier).signOut();
                         ref.invalidate(adminOrdersProvider);
                         ref.invalidate(userProfileProvider);
-                        context.go('/login');
+                        if (context.mounted) {
+                          context.go('/login');
+                        }
                       },
                     ),
                   ],

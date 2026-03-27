@@ -64,11 +64,17 @@ const _authRoutes = ['/login', '/signup', '/forgot-password'];
 class RouterNotifier extends ChangeNotifier {
   final Ref _ref;
   RouterNotifier(this._ref) {
+    // 1. Listen to Riverpod state for role caching
     _ref.listen(authNotifierProvider, (previous, next) {
       if (next.isAuthenticated) {
-        // Pre-fetch profile/role to warm the cache for the router
         _ref.read(userProfileProvider.future);
       }
+      notifyListeners();
+    });
+
+    // 2. 🔥 GOLDEN RULE: Raw Supabase Auth Listener (Fail-safe)
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      print('DEBUG: AppRouter: onAuthStateChange event: ${data.event}');
       notifyListeners();
     });
   }

@@ -47,8 +47,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
       final session = Supabase.instance.client.auth.currentSession;
       if (session != null) {
-        // GoRouter redirect logic handles the role-based routing
-        context.go('/home');
+        // Navigate to /; GoRouter's redirect logic will handle role-based landing.
+        context.go('/');
       } else {
         context.go('/login');
       }

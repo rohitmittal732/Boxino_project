@@ -50,11 +50,13 @@ class ProfileScreen extends ConsumerWidget {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {
-                    ref.read(authNotifierProvider.notifier).signOut();
+                  onPressed: () async {
+                    await ref.read(authNotifierProvider.notifier).signOut();
                     ref.invalidate(userProfileProvider);
                     ref.invalidate(approvedKitchensProvider);
-                    context.go('/login');
+                    if (context.mounted) {
+                      context.go('/login');
+                    }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red.shade50,
