@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1023207940676",
+    "project_id": "boxino-c7dfe",
+    "storage_bucket": "boxino-c7dfe.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1023207940676:android:b2823394a56240ab775211",
+        "android_client_info": {
+          "package_name": "com.example.boxino"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBcv5dF3U72uv2K1qH0L-rB4apz0MHPJZM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

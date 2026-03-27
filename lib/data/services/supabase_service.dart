@@ -68,7 +68,7 @@ class SupabaseService {
         return UserModel.fromJson(response);
       }
       return null;
-    } catch (e, stack) {
+    } catch (e) {
       print('ERROR: SupabaseService: Error fetching profile for $userId: $e');
       return null;
     }

@@ -232,7 +232,7 @@ class AdminKitchensTab extends ConsumerWidget {
                     await ref.read(supabaseServiceProvider).toggleKitchenApproval(k.id, val);
                     ref.invalidate(adminKitchensProvider);
                   },
-                  activeColor: AppTheme.primaryGreen,
+                  activeThumbColor: AppTheme.primaryGreen,
                 ),
                 IconButton(
                   icon: const Icon(Icons.restaurant_menu),
@@ -411,7 +411,7 @@ class _AdminOrdersTabState extends ConsumerState<AdminOrdersTab> {
             ),
           );
         },
-      ),
+      );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, s) => Center(child: Text('Error: $e')),
