@@ -1,5 +1,7 @@
 
 
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:boxino/core/theme/app_theme.dart';
 import 'package:boxino/core/routes/app_router.dart';
