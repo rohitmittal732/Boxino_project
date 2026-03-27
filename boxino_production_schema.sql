@@ -85,6 +85,7 @@ CREATE TABLE IF NOT EXISTS public.orders (
   payment_status text DEFAULT 'pending',
   tracking_lat numeric, 
   tracking_lng numeric,
+  delivery_id uuid REFERENCES public.users(id),
   created_at timestamptz DEFAULT now()
 );
 

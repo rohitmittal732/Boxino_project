@@ -78,7 +78,7 @@ class _DeliveryBoyScreenState extends ConsumerState<DeliveryBoyScreen> {
     final userId = ref.watch(currentUserProvider);
 
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
         backgroundColor: AppTheme.background,
         appBar: AppBar(
@@ -106,10 +106,12 @@ class _DeliveryBoyScreenState extends ConsumerState<DeliveryBoyScreen> {
           bottom: const TabBar(
             labelColor: AppTheme.primaryOrange,
             indicatorColor: AppTheme.primaryOrange,
+            isScrollable: true,
             tabs: [
-              Tab(text: 'My Tasks', icon: Icon(Icons.delivery_dining)),
-              Tab(text: 'New Orders', icon: Icon(Icons.new_releases)),
+              Tab(text: 'Tasks', icon: Icon(Icons.delivery_dining)),
+              Tab(text: 'New', icon: Icon(Icons.new_releases)),
               Tab(text: 'Earnings', icon: Icon(Icons.account_balance_wallet)),
+              Tab(text: 'Profile', icon: Icon(Icons.person)),
             ],
           ),
         ),
@@ -173,11 +175,70 @@ class _DeliveryBoyScreenState extends ConsumerState<DeliveryBoyScreen> {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, s) => Center(child: Text('Error: $e')),
             ),
+
+            // Tab 4
+            const DeliveryProfileTab(),
           ],
         ),
       ),
     );
   }
+}
+
+class DeliveryProfileTab extends ConsumerWidget {
+  const DeliveryProfileTab({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profileAsync = ref.watch(userProfileProvider);
+
+    return profileAsync.when(
+      data: (user) => SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            children: [
+              const CircleAvatar(
+                radius: 50,
+                backgroundColor: AppTheme.primaryOrange,
+                child: Icon(Icons.delivery_dining, size: 50, color: Colors.white),
+              ),
+              const SizedBox(height: 24),
+              Text(user?.name ?? 'Delivery Partner', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text(user?.email ?? '', style: const TextStyle(color: Colors.grey, fontSize: 16)),
+              const SizedBox(height: 32),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: AppTheme.cardShadow,
+                ),
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.motorcycle, color: AppTheme.primaryOrange),
+                      title: const Text('Account Type'),
+                      trailing: Text(user?.role.toUpperCase() ?? 'DELIVERY', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.logout, color: Colors.red),
+                      title: const Text('Logout Securely', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                      onTap: () => ref.read(supabaseServiceProvider).signOut(),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, s) => Center(child: Text('Error loading profile: $e')),
+    );
+  }
+}
 }
 
 class DeliveryEarningsTab extends ConsumerWidget {
@@ -247,19 +308,18 @@ class DeliveryCard extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Order ID: ${delivery.id.length > 8 ? delivery.id.substring(0, 8) : delivery.id}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                Expanded(child: Text('Order ID: ${delivery.id.length > 8 ? delivery.id.substring(0, 8) : delivery.id}', style: const TextStyle(fontWeight: FontWeight.bold))),
                 _buildStatusBadge(delivery.status),
               ],
             ),
             const Divider(height: 32),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Current Location:'),
-                Text(delivery.trackingLat != null ? '${delivery.trackingLat!.toStringAsFixed(4)}, ${delivery.trackingLng!.toStringAsFixed(4)}' : 'Awaiting Link...',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                const Text('Location:'),
+                const SizedBox(width: 8),
+                Expanded(child: Text(delivery.trackingLat != null ? '${delivery.trackingLat!.toStringAsFixed(4)}, ${delivery.trackingLng!.toStringAsFixed(4)}' : 'Awaiting Link...',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey), overflow: TextOverflow.ellipsis, textAlign: TextAlign.right)),
               ],
             ),
             const SizedBox(height: 16),

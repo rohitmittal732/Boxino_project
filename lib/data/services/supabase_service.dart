@@ -120,6 +120,10 @@ class SupabaseService {
     await _client.from('kitchens').insert(kitchen.toJson());
   }
 
+  Future<void> updateKitchen(KitchenModel kitchen) async {
+    await _client.from('kitchens').update(kitchen.toJson()).eq('id', kitchen.id);
+  }
+
   Future<void> deleteKitchen(String id) async {
     await _client.from('kitchens').delete().eq('id', id);
   }
@@ -136,6 +140,10 @@ class SupabaseService {
 
   Future<void> addMenu(MenuModel menu) async {
     await _client.from('menus').insert(menu.toJson());
+  }
+
+  Future<void> updateMenu(MenuModel menu) async {
+    await _client.from('menus').update(menu.toJson()).eq('id', menu.id);
   }
 
   Future<void> deleteMenu(String id) async {
