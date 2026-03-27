@@ -115,12 +115,12 @@ final userOrdersProvider = StreamProvider<List<OrderModel>>((ref) {
 });
 
 // ─── Delivery Orders Provider (Future) ────────────────────────
-final deliveryOrdersProvider = StreamProvider<List<DeliveryModel>>((ref) {
+final deliveryOrdersProvider = StreamProvider<List<OrderModel>>((ref) {
   final userId = ref.watch(currentUserProvider);
   if (userId == null) return Stream.value([]);
   final service = ref.read(supabaseServiceProvider);
   return service.getDeliveryBoyDeliveriesStream(userId).map(
-    (list) => list.map((m) => DeliveryModel.fromJson(m)).toList(),
+    (list) => list.map((m) => OrderModel.fromJson(m)).toList(),
   );
 });
 
@@ -128,22 +128,6 @@ final deliveryOrdersProvider = StreamProvider<List<DeliveryModel>>((ref) {
 final liveOrderStreamProvider = StreamProvider.family<List<Map<String, dynamic>>, String>((ref, orderId) {
   final service = ref.read(supabaseServiceProvider);
   return service.getLiveOrderStream(orderId);
-});
-
-// ─── Live Delivery Stream Provider (Family) ───────────────────
-final liveDeliveryStreamProvider = StreamProvider.family<List<DeliveryModel>, String>((ref, orderId) {
-  final service = ref.read(supabaseServiceProvider);
-  return service.getLiveDeliveryStream(orderId).map(
-    (list) => list.map((e) => DeliveryModel.fromJson(e)).toList(),
-  );
-});
-
-typedef TrackingData = ({String status, DeliveryModel? delivery});
-
-// ─── Delivery Location Stream (Family) ────────────────────────
-final deliveryLocationProvider = StreamProvider.family<List<Map<String, dynamic>>, String>((ref, deliveryBoyId) {
-  final service = ref.read(supabaseServiceProvider);
-  return service.getDeliveryLocationStream(deliveryBoyId);
 });
 
 // ─── Cart Management ──────────────────────────────────────────

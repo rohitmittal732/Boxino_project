@@ -165,10 +165,13 @@ class OrderModel {
   final List<dynamic> items; 
   final double totalPrice;
   final String status; // 'pending', 'accepted', 'preparing', 'out_for_delivery', 'delivered'
+  final String? deliveryId;
   final DateTime createdAt;
   final String userAddress;
   final String paymentMethod; // 'cash', 'online'
   final String paymentStatus; // 'pending', 'paid'
+  final double? trackingLat;
+  final double? trackingLng;
   
   // Legacy fields for UI compatibility
   final String? customization;
@@ -183,10 +186,13 @@ class OrderModel {
     required this.items,
     required this.totalPrice,
     required this.status,
+    this.deliveryId,
     required this.createdAt,
     required this.userAddress,
     this.paymentMethod = 'cash',
     this.paymentStatus = 'pending',
+    this.trackingLat,
+    this.trackingLng,
     this.customization,
     this.planType,
     this.mealType,
@@ -204,10 +210,13 @@ class OrderModel {
       items: json['items'] is List ? json['items'] as List : (json['items'] is String ? [json['items']] : []),
       totalPrice: (json['total_price'] as num?)?.toDouble() ?? (json['price'] as num?)?.toDouble() ?? 0.0,
       status: json['status'] as String? ?? 'pending',
+      deliveryId: json['delivery_id'] as String?,
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : DateTime.now(),
       userAddress: json['user_address'] as String? ?? '',
       paymentMethod: json['payment_method'] as String? ?? 'cash',
       paymentStatus: json['payment_status'] as String? ?? 'pending',
+      trackingLat: (json['tracking_lat'] as num?)?.toDouble() ?? (json['lat'] as num?)?.toDouble(),
+      trackingLng: (json['tracking_lng'] as num?)?.toDouble() ?? (json['lng'] as num?)?.toDouble(),
       customization: json['customization'] as String?,
       planType: json['plan_type'] as String?,
       mealType: json['meal_type'] as String?,
@@ -227,6 +236,9 @@ class OrderModel {
       'payment_method': paymentMethod,
       'payment_status': paymentStatus,
     };
+    if (deliveryId != null) map['delivery_id'] = deliveryId;
+    if (trackingLat != null) map['tracking_lat'] = trackingLat;
+    if (trackingLng != null) map['tracking_lng'] = trackingLng;
     if (id.isNotEmpty) map['id'] = id;
     if (customization != null) map['customization'] = customization;
     if (planType != null) map['plan_type'] = planType;

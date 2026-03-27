@@ -190,7 +190,7 @@ class DeliveryEarningsTab extends ConsumerWidget {
 
     // Use a Future for fetching true history directly from Supabase
     return FutureBuilder<List<dynamic>>(
-      future: Supabase.instance.client.from('deliveries').select().eq('delivery_boy_id', userId).eq('status', 'delivered'),
+      future: Supabase.instance.client.from('orders').select().eq('delivery_id', userId).eq('status', 'delivered'),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
         
@@ -233,7 +233,7 @@ class DeliveryEarningsTab extends ConsumerWidget {
 }
 
 class DeliveryCard extends ConsumerWidget {
-  final DeliveryModel delivery;
+  final OrderModel delivery;
   const DeliveryCard({super.key, required this.delivery});
 
   @override
@@ -249,7 +249,7 @@ class DeliveryCard extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Order ID: ${delivery.orderId.length > 8 ? delivery.orderId.substring(0, 8) : delivery.orderId}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text('Order ID: ${delivery.id.length > 8 ? delivery.id.substring(0, 8) : delivery.id}', style: const TextStyle(fontWeight: FontWeight.bold)),
                 _buildStatusBadge(delivery.status),
               ],
             ),
@@ -258,7 +258,7 @@ class DeliveryCard extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('Current Location:'),
-                Text(delivery.lat != null ? '${delivery.lat!.toStringAsFixed(4)}, ${delivery.lng!.toStringAsFixed(4)}' : 'Awaiting Link...',
+                Text(delivery.trackingLat != null ? '${delivery.trackingLat!.toStringAsFixed(4)}, ${delivery.trackingLng!.toStringAsFixed(4)}' : 'Awaiting Link...',
                   style: const TextStyle(fontSize: 12, color: Colors.grey)),
               ],
             ),
@@ -281,7 +281,7 @@ class DeliveryCard extends ConsumerWidget {
     );
   }
 
-  void _showStatusDialog(BuildContext context, WidgetRef ref, DeliveryModel delivery) {
+  void _showStatusDialog(BuildContext context, WidgetRef ref, OrderModel delivery) {
     final allStatuses = ['accepted', 'picked_up', 'on_the_way', 'delivered'];
     final currentIndex = allStatuses.indexOf(delivery.status);
     

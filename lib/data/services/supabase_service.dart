@@ -233,49 +233,29 @@ class SupabaseService {
 
   // DELIVERIES
   Future<void> assignDelivery(String orderId, String deliveryBoyId) async {
-    await updateOrderStatus(orderId, 'accepted');
-    await _client.from('deliveries').insert({
-      'order_id': orderId,
-      'delivery_boy_id': deliveryBoyId,
+    print('LOG: SupabaseService: Assigning order $orderId to $deliveryBoyId');
+    await _client.from('orders').update({
       'status': 'accepted',
-    });
+      'delivery_id': deliveryBoyId,
+    }).eq('id', orderId);
   }
 
   Future<void> acceptOrder(String orderId, String deliveryBoyId) async {
-    // Same logic as assign, but initiated by the delivery boy
     await assignDelivery(orderId, deliveryBoyId);
   }
 
-  Future<List<DeliveryModel>> getDeliveryBoyOrders(String deliveryBoyId) async {
-    final response = await _client.from('deliveries').select().eq('delivery_boy_id', deliveryBoyId).neq('status', 'delivered');
-    return (response as List).map((d) => DeliveryModel.fromJson(d)).toList();
-  }
-
-  Future<void> updateDeliveryStatus(String deliveryId, String status) async {
-    print('LOG: SupabaseService: Updating delivery status for $deliveryId to $status');
-    await _client.from('deliveries').update({
-      'status': status, 
-      'updated_at': DateTime.now().toIso8601String()
-    }).eq('id', deliveryId);
+  Future<void> updateDeliveryStatus(String orderId, String status) async {
+    print('LOG: SupabaseService: Updating order $orderId to $status');
     
-    final res = await _client.from('deliveries').select('order_id').eq('id', deliveryId).single();
-    final orderId = res['order_id'];
-
+    final Map<String, dynamic> updates = {'status': status};
     if (status == 'delivered') {
-      // Mark order as delivered AND if cash payment, mark as paid
-      await _client.from('orders').update({
-        'status': 'delivered',
-        'payment_status': 'paid'
-      }).eq('id', orderId);
-    } else if (status == 'on_the_way') {
-      await updateOrderStatus(orderId, 'out_for_delivery');
-    } else if (status == 'picked_up') {
-      await updateOrderStatus(orderId, 'preparing');
+      updates['payment_status'] = 'paid';
     }
+    await _client.from('orders').update(updates).eq('id', orderId);
   }
 
-  Future<void> updateLiveLocation(String deliveryId, double lat, double lng) async {
-    await _client.from('deliveries').update({'lat': lat, 'lng': lng, 'updated_at': DateTime.now().toIso8601String()}).eq('id', deliveryId);
+  Future<void> updateLiveLocation(String orderId, double lat, double lng) async {
+    await _client.from('orders').update({'tracking_lat': lat, 'tracking_lng': lng}).eq('id', orderId);
   }
 
   // STREAMS
@@ -292,19 +272,11 @@ class SupabaseService {
   }
 
   Stream<List<Map<String, dynamic>>> getDeliveryBoyDeliveriesStream(String deliveryBoyId) {
-    return _client.from('deliveries').stream(primaryKey: ['id']).eq('delivery_boy_id', deliveryBoyId).order('updated_at');
+    // This now watches ORDERS where delivery_id matches
+    return _client.from('orders').stream(primaryKey: ['id']).eq('delivery_id', deliveryBoyId);
   }
 
   Stream<List<Map<String, dynamic>>> getLiveOrderStream(String orderId) {
     return _client.from('orders').stream(primaryKey: ['id']).eq('id', orderId);
   }
-
-  Stream<List<Map<String, dynamic>>> getLiveDeliveryStream(String orderId) {
-    return _client.from('deliveries').stream(primaryKey: ['id']).eq('order_id', orderId);
-  }
-
-  Stream<List<Map<String, dynamic>>> getDeliveryLocationStream(String deliveryBoyId) {
-    return _client.from('deliveries').stream(primaryKey: ['id']).eq('delivery_boy_id', deliveryBoyId);
-  }
 }
-

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:boxino/core/theme/app_theme.dart';
 import 'package:boxino/core/providers/app_providers.dart';
+import 'package:boxino/domain/models/app_models.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -12,9 +13,7 @@ class OrderTrackingScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Listen to both order status and delivery updates
     final orderStream = ref.watch(liveOrderStreamProvider(orderId));
-    final deliveryStream = ref.watch(liveDeliveryStreamProvider(orderId));
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -27,105 +26,95 @@ class OrderTrackingScreen extends ConsumerWidget {
       body: orderStream.when(
         data: (orderData) {
           if (orderData.isEmpty) return const Center(child: Text('Order not found.'));
-          final orderRaw = orderData.first;
-          final orderStatus = orderRaw['status'] as String;
-          final kitchenId = orderRaw['kitchen_id'] as String;
-          final kitchenAsync = ref.watch(kitchenByIdProvider(kitchenId));
+          
+          final order = OrderModel.fromJson(orderData.first);
+          final kitchenAsync = ref.watch(kitchenByIdProvider(order.kitchenId));
 
-          return deliveryStream.when(
-            data: (deliveries) {
-              final delivery = deliveries.isNotEmpty ? deliveries.first : null;
-              final currentStatus = delivery?.status ?? orderStatus;
-
-              return SingleChildScrollView(
-                child: Column(
-                  children: [
-                    // Live Map
-                    SizedBox(
-                      height: 300,
-                      width: double.infinity,
-                      child: FlutterMap(
-                        options: MapOptions(
-                          initialCenter: (delivery != null && delivery.lat != null && delivery.lat != 0)
-                              ? LatLng(delivery.lat!, delivery.lng!)
-                              : const LatLng(26.9124, 75.7873), // Default Jaipur
-                          initialZoom: 14.0,
-                        ),
-                        children: [
-                          TileLayer(
-                            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                            userAgentPackageName: 'com.boxino.app',
-                          ),
-                          MarkerLayer(
-                            markers: [
-                              // Delivery Boy Marker
-                              if (delivery != null && delivery.lat != null && delivery.lat != 0)
-                                Marker(
-                                  point: LatLng(delivery.lat!, delivery.lng!),
-                                  width: 50,
-                                  height: 50,
-                                  child: const Icon(Icons.delivery_dining, color: AppTheme.primaryOrange, size: 40),
-                                ),
-                              // Destination Marker (Kitchen)
-                              if (kitchenAsync.hasValue && kitchenAsync.value != null)
-                                Marker(
-                                  point: LatLng(kitchenAsync.value!.lat, kitchenAsync.value!.long),
-                                  width: 50,
-                                  height: 50,
-                                  child: const Icon(Icons.location_on, color: AppTheme.primaryGreen, size: 40),
-                                ),
-                            ],
-                          ),
+          return SingleChildScrollView(
+            child: Column(
+              children: [
+                // Live Map
+                SizedBox(
+                  height: 300,
+                  width: double.infinity,
+                  child: FlutterMap(
+                    options: MapOptions(
+                      initialCenter: (order.trackingLat != null && order.trackingLat != 0)
+                          ? LatLng(order.trackingLat!, order.trackingLng!)
+                          : const LatLng(26.9124, 75.7873), // Default
+                      initialZoom: 14.0,
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.boxino.app',
+                      ),
+                      MarkerLayer(
+                        markers: [
+                          // Delivery Boy Marker
+                          if (order.trackingLat != null && order.trackingLat != 0)
+                            Marker(
+                              point: LatLng(order.trackingLat!, order.trackingLng!),
+                              width: 50,
+                              height: 50,
+                              child: const Icon(Icons.delivery_dining, color: AppTheme.primaryOrange, size: 40),
+                            ),
+                          // Destination Marker (Kitchen)
+                          if (kitchenAsync.hasValue && kitchenAsync.value != null)
+                            Marker(
+                              point: LatLng(kitchenAsync.value!.lat, kitchenAsync.value!.long),
+                              width: 50,
+                              height: 50,
+                              child: const Icon(Icons.location_on, color: AppTheme.primaryGreen, size: 40),
+                            ),
                         ],
                       ),
-                    ),
-                    
-                    Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('Order Status', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                              Text('#${orderId.substring(0, 8)}', style: const TextStyle(color: Colors.grey)),
-                            ],
-                          ),
-                          const SizedBox(height: 24),
-                          _buildTimeline(currentStatus),
-                          const SizedBox(height: 40),
-                          if (delivery != null) ...[
-                            const Text('Delivery Partner Info', style: TextStyle(fontWeight: FontWeight.bold)),
-                            const ListTile(
-                              leading: CircleAvatar(child: Icon(Icons.person)),
-                              title: Text('Sanjeev (Delivery Partner)'),
-                              subtitle: Text('Contact: +91 98765 43210'),
-                            ),
-                          ],
-                          const SizedBox(height: 20),
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton(
-                              onPressed: () => context.go('/home'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppTheme.primaryOrange,
-                                side: const BorderSide(color: AppTheme.primaryOrange),
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                              ),
-                              child: const Text('Back to Home', style: TextStyle(fontWeight: FontWeight.bold)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              );
-            },
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, s) => Center(child: Text('Error: $e')),
+                
+                Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Order Status', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                          Text('#${order.id.substring(0, 8)}', style: const TextStyle(color: Colors.grey)),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      _buildTimeline(order.status),
+                      const SizedBox(height: 40),
+                      if (order.deliveryId != null) ...[
+                        const Text('Delivery Partner Info', style: TextStyle(fontWeight: FontWeight.bold)),
+                        const ListTile(
+                          leading: CircleAvatar(child: Icon(Icons.person)),
+                          title: Text('Delivery Partner Assigned'),
+                          subtitle: Text('Tracking live now...'),
+                        ),
+                      ],
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: () => context.go('/home'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.primaryOrange,
+                            side: const BorderSide(color: AppTheme.primaryOrange),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          ),
+                          child: const Text('Back to Home', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
