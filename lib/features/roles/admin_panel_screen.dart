@@ -22,8 +22,8 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen> {
     // Listen for new orders to show notification
     ref.listen(adminOrdersProvider, (previous, next) {
       if (next is AsyncData && previous is AsyncData) {
-        final newOrders = next.value!;
-        final oldOrders = previous.value!;
+        final newOrders = next.valueOrNull ?? [];
+        final oldOrders = previous.valueOrNull ?? [];
         if (newOrders.length > oldOrders.length) {
           final latest = newOrders.first;
           if (latest.status == 'pending') {

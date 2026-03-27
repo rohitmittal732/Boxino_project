@@ -16,9 +16,11 @@ class OrderTrackingScreen extends ConsumerWidget {
     // Listen for status changes to notify user
     ref.listen(liveOrderStreamProvider(orderId), (previous, next) {
       if (next is AsyncData && previous is AsyncData) {
-        if (next.value!.isNotEmpty && previous.value!.isNotEmpty) {
-          final newStatus = next.value!.first['status'];
-          final oldStatus = previous.value!.first['status'];
+        final nextVal = next.valueOrNull;
+        final prevVal = previous.valueOrNull;
+        if (nextVal != null && nextVal.isNotEmpty && prevVal != null && prevVal.isNotEmpty) {
+          final newStatus = nextVal.first['status'];
+          final oldStatus = prevVal.first['status'];
           if (newStatus != oldStatus) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -93,9 +95,9 @@ class OrderTrackingScreen extends ConsumerWidget {
                               child: const Icon(Icons.delivery_dining, color: AppTheme.primaryOrange, size: 40),
                             ),
                           // Destination Marker (Kitchen)
-                          if (kitchenAsync.hasValue && kitchenAsync.value != null)
+                          if (kitchenAsync.valueOrNull != null)
                             Marker(
-                              point: LatLng(kitchenAsync.value!.lat, kitchenAsync.value!.long),
+                              point: LatLng(kitchenAsync.valueOrNull!.lat, kitchenAsync.valueOrNull!.long),
                               width: 50,
                               height: 50,
                               child: const Icon(Icons.location_on, color: AppTheme.primaryGreen, size: 40),

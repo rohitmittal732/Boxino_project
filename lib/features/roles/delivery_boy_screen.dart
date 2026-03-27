@@ -53,7 +53,7 @@ class _DeliveryBoyScreenState extends ConsumerState<DeliveryBoyScreen> {
     _locationTimer?.cancel();
     // Throttle updates to 10 seconds to save battery and reduce DB writes
     _locationTimer = Timer.periodic(const Duration(seconds: 10), (timer) async {
-      final deliveries = ref.read(deliveryOrdersProvider).value ?? [];
+      final deliveries = ref.read(deliveryOrdersProvider).valueOrNull ?? [];
       final service = ref.read(supabaseServiceProvider);
 
       final activeDeliveries = deliveries.where((d) => d.status == 'on_the_way').toList();
@@ -89,8 +89,8 @@ class _DeliveryBoyScreenState extends ConsumerState<DeliveryBoyScreen> {
     // Listen for new assignments
     ref.listen(deliveryOrdersProvider, (previous, next) {
       if (next is AsyncData && previous is AsyncData) {
-        final newCount = next.value!.length;
-        final oldCount = previous.value!.length;
+        final newCount = next.valueOrNull?.length ?? 0;
+        final oldCount = previous.valueOrNull?.length ?? 0;
         if (newCount > oldCount) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
