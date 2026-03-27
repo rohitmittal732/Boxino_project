@@ -84,17 +84,13 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
     refreshListenable: notifier,
     redirect: (context, state) async {
       final location = state.matchedLocation;
-      bool authenticated = false;
-      try {
-        authenticated = Supabase.instance.client.auth.currentSession != null;
-      } catch (_) {
-        // Supabase not yet initialized
-      }
+      final authState = ref.read(authNotifierProvider);
+      final authenticated = authState.isAuthenticated;
 
       // 1. Unauthenticated users go to login if trying to access protected routes
       if (_protectedRoutes.any((r) => location.startsWith(r))) {
         if (!authenticated) {
-          print('DEBUG: AppRouter: Unauthenticated user, redirecting to /login');
+          print('DEBUG: AppRouter: Unauthenticated state, redirecting to /login');
           return '/login';
         }
       }

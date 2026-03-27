@@ -156,6 +156,7 @@ class AuthNotifier extends StateNotifier<AuthStateModel> {
   Future<void> signOut() async {
     await _service.signOut();
     state = const AuthStateModel(status: AuthStatus.unauthenticated);
+    // Explicitly reset the state model
   }
 
   void clearError() {

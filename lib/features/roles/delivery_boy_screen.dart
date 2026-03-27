@@ -129,7 +129,13 @@ class _DeliveryBoyScreenState extends ConsumerState<DeliveryBoyScreen> {
             ),
             IconButton(
               icon: const Icon(Icons.logout),
-              onPressed: () => ref.read(authNotifierProvider.notifier).signOut(),
+              onPressed: () {
+                ref.read(authNotifierProvider.notifier).signOut();
+                ref.invalidate(deliveryOrdersProvider);
+                ref.invalidate(isOnlineProvider);
+                ref.invalidate(userProfileProvider);
+                context.go('/login');
+              },
             ),
           ],
           bottom: const TabBar(
@@ -254,7 +260,13 @@ class DeliveryProfileTab extends ConsumerWidget {
                     ListTile(
                       leading: const Icon(Icons.logout, color: Colors.red),
                       title: const Text('Logout Securely', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-                      onTap: () => ref.read(authNotifierProvider.notifier).signOut(),
+                      onTap: () {
+                        ref.read(authNotifierProvider.notifier).signOut();
+                        ref.invalidate(deliveryOrdersProvider);
+                        ref.invalidate(isOnlineProvider);
+                        ref.invalidate(userProfileProvider);
+                        context.go('/login');
+                      },
                     ),
                   ],
                 ),

@@ -242,10 +242,29 @@ class SupabaseService {
   // DELIVERIES
   Future<void> assignDelivery(String orderId, String deliveryBoyId) async {
     print('LOG: SupabaseService: Assigning order $orderId to $deliveryBoyId');
+    
+    // 🔥 STEP 1: Update orders table (main source of truth for realtime)
     await _client.from('orders').update({
       'status': 'accepted',
       'delivery_id': deliveryBoyId,
     }).eq('id', orderId);
+
+    // 🔥 STEP 2: Upsert into deliveries table (assignment record)
+    // We check for existing first to avoid Double Insert Bug as requested
+    final existing = await _client.from('deliveries').select().eq('order_id', orderId);
+    
+    if ((existing as List).isEmpty) {
+      await _client.from('deliveries').insert({
+        'order_id': orderId,
+        'delivery_boy_id': deliveryBoyId,
+        'status': 'accepted',
+      });
+    } else {
+      await _client.from('deliveries').update({
+        'delivery_boy_id': deliveryBoyId,
+        'status': 'accepted',
+      }).eq('order_id', orderId);
+    }
   }
 
   Future<void> acceptOrder(String orderId, String deliveryBoyId) async {
@@ -259,7 +278,12 @@ class SupabaseService {
     if (status == 'delivered') {
       updates['payment_status'] = 'paid';
     }
-    await _client.from('orders').update(updates).eq('id', orderId);
+
+    // 🔥 SYNC: Update both tables
+    await Future.wait([
+      _client.from('orders').update(updates).eq('id', orderId),
+      _client.from('deliveries').update({'status': status}).eq('order_id', orderId),
+    ]);
   }
 
   Future<void> updateLiveLocation(String orderId, double lat, double lng) async {
