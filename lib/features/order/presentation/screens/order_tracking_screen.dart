@@ -13,6 +13,25 @@ class OrderTrackingScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Listen for status changes to notify user
+    ref.listen(liveOrderStreamProvider(orderId), (previous, next) {
+      if (next is AsyncData && previous is AsyncData) {
+        if (next.value!.isNotEmpty && previous.value!.isNotEmpty) {
+          final newStatus = next.value!.first['status'];
+          final oldStatus = previous.value!.first['status'];
+          if (newStatus != oldStatus) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('📦 Order Status Updated: ${newStatus.toString().toUpperCase()}'),
+                backgroundColor: AppTheme.primaryGreen,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        }
+      }
+    });
+
     final orderStream = ref.watch(liveOrderStreamProvider(orderId));
 
     return Scaffold(
@@ -29,6 +48,20 @@ class OrderTrackingScreen extends ConsumerWidget {
           
           final order = OrderModel.fromJson(orderData.first);
           final kitchenAsync = ref.watch(kitchenByIdProvider(order.kitchenId));
+          
+          // Watch delivery boy's global location if assigned
+          double? liveLat = order.trackingLat;
+          double? liveLng = order.trackingLng;
+          
+          if (order.deliveryId != null) {
+            final riderLocAsync = ref.watch(deliveryLocationStreamProvider(order.deliveryId!));
+            riderLocAsync.whenData((data) {
+              if (data.isNotEmpty) {
+                liveLat = (data.first['lat'] as num?)?.toDouble();
+                liveLng = (data.first['lng'] as num?)?.toDouble();
+              }
+            });
+          }
 
           return SingleChildScrollView(
             child: Column(
@@ -39,8 +72,8 @@ class OrderTrackingScreen extends ConsumerWidget {
                   width: double.infinity,
                   child: FlutterMap(
                     options: MapOptions(
-                      initialCenter: (order.trackingLat != null && order.trackingLat != 0)
-                          ? LatLng(order.trackingLat!, order.trackingLng!)
+                      initialCenter: (liveLat != null && liveLat != 0)
+                          ? LatLng(liveLat!, liveLng!)
                           : const LatLng(26.9124, 75.7873), // Default
                       initialZoom: 14.0,
                     ),
@@ -52,9 +85,9 @@ class OrderTrackingScreen extends ConsumerWidget {
                       MarkerLayer(
                         markers: [
                           // Delivery Boy Marker
-                          if (order.trackingLat != null && order.trackingLat != 0)
+                          if (liveLat != null && liveLat != 0)
                             Marker(
-                              point: LatLng(order.trackingLat!, order.trackingLng!),
+                              point: LatLng(liveLat!, liveLng!),
                               width: 50,
                               height: 50,
                               child: const Icon(Icons.delivery_dining, color: AppTheme.primaryOrange, size: 40),

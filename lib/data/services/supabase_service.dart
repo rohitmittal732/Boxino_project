@@ -266,6 +266,10 @@ class SupabaseService {
     await _client.from('orders').update({'tracking_lat': lat, 'tracking_lng': lng}).eq('id', orderId);
   }
 
+  Future<void> updateUserLocation(String userId, double lat, double lng) async {
+    await _client.from('users').update({'lat': lat, 'lng': lng}).eq('id', userId);
+  }
+
   // STREAMS
   Stream<List<Map<String, dynamic>>> getAdminOrdersStream() {
     return _client.from('orders').stream(primaryKey: ['id']).order('created_at');
@@ -286,5 +290,9 @@ class SupabaseService {
 
   Stream<List<Map<String, dynamic>>> getLiveOrderStream(String orderId) {
     return _client.from('orders').stream(primaryKey: ['id']).eq('id', orderId);
+  }
+
+  Stream<List<Map<String, dynamic>>> getDeliveryBoyLocationStream(String deliveryId) {
+    return _client.from('users').stream(primaryKey: ['id']).eq('id', deliveryId);
   }
 }

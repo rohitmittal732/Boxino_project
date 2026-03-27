@@ -17,6 +17,27 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Listen for new orders to show notification
+    ref.listen(adminOrdersProvider, (previous, next) {
+      if (next is AsyncData && previous is AsyncData) {
+        final newOrders = next.value!;
+        final oldOrders = previous.value!;
+        if (newOrders.length > oldOrders.length) {
+          final latest = newOrders.first;
+          if (latest.status == 'pending') {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('🔔 New Order: ${latest.id.substring(0, 8)}'),
+                backgroundColor: AppTheme.primaryOrange,
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
+        }
+      }
+    });
+
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
@@ -26,11 +47,12 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen> {
         elevation: 0,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(50),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
+          child: Container(
+            color: Colors.white,
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _buildTab(0, 'Dashboard'),
+                _buildTab(0, 'Home'),
                 _buildTab(1, 'Kitchens'),
                 _buildTab(2, 'Orders'),
                 _buildTab(3, 'Users'),
@@ -67,7 +89,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen> {
     return GestureDetector(
       onTap: () => setState(() => _tabIndex = index),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
@@ -93,56 +115,71 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen> {
     final descController = TextEditingController();
     final addressController = TextEditingController();
     final priceController = TextEditingController(text: '100');
+    bool isVegVal = true;
+    bool isNonVegVal = false;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add New Kitchen'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Name')),
-              TextField(controller: descController, decoration: const InputDecoration(labelText: 'Description')),
-              TextField(controller: addressController, decoration: const InputDecoration(labelText: 'Address')),
-              TextField(controller: priceController, decoration: const InputDecoration(labelText: 'Price per meal'), keyboardType: TextInputType.number),
-            ],
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Add New Kitchen'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Name')),
+                TextField(controller: descController, decoration: const InputDecoration(labelText: 'Description')),
+                TextField(controller: addressController, decoration: const InputDecoration(labelText: 'Address')),
+                TextField(controller: priceController, decoration: const InputDecoration(labelText: 'Price per meal'), keyboardType: TextInputType.number),
+                const SizedBox(height: 12),
+                CheckboxListTile(
+                  title: const Text('Pure Veg'),
+                  value: isVegVal,
+                  onChanged: (val) => setDialogState(() => isVegVal = val ?? false),
+                ),
+                CheckboxListTile(
+                  title: const Text('Non-Veg Available'),
+                  value: isNonVegVal,
+                  onChanged: (val) => setDialogState(() => isNonVegVal = val ?? false),
+                ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                try {
+                  final kitchen = KitchenModel(
+                    id: const Uuid().v4(),
+                    name: nameController.text,
+                    imageUrl: '',
+                    rating: 0,
+                    description: descController.text,
+                    isVeg: isVegVal,
+                    isNonVeg: isNonVegVal,
+                    lat: 26.9124,
+                    long: 75.7873,
+                    address: addressController.text,
+                    pricePerMeal: double.tryParse(priceController.text) ?? 100,
+                    isApproved: true,
+                  );
+                  await ref.read(supabaseServiceProvider).createKitchen(kitchen);
+                  ref.invalidate(adminKitchensProvider);
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Kitchen Added Successfully!')));
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error adding kitchen. Are you an Admin? $e'), backgroundColor: Colors.red));
+                  }
+                }
+              },
+              child: const Text('Add'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                final kitchen = KitchenModel(
-                  id: const Uuid().v4(),
-                  name: nameController.text,
-                  imageUrl: '',
-                  rating: 0,
-                  description: descController.text,
-                  isVeg: true,
-                  isNonVeg: false,
-                  lat: 26.9124,
-                  long: 75.7873,
-                  address: addressController.text,
-                  pricePerMeal: double.tryParse(priceController.text) ?? 100,
-                  isApproved: true,
-                );
-                await ref.read(supabaseServiceProvider).createKitchen(kitchen);
-                ref.invalidate(adminKitchensProvider);
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Kitchen Added Successfully!')));
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error adding kitchen. Are you an Admin? $e'), backgroundColor: Colors.red));
-                }
-              }
-            },
-            child: const Text('Add'),
-          ),
-        ],
       ),
     );
   }
@@ -376,51 +413,66 @@ class AdminKitchenCard extends ConsumerWidget {
     final descController = TextEditingController(text: kitchen.description);
     final addressController = TextEditingController(text: kitchen.address);
     final priceController = TextEditingController(text: kitchen.pricePerMeal.toString());
+    bool isVegVal = kitchen.isVeg;
+    bool isNonVegVal = kitchen.isNonVeg;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Kitchen'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Name')),
-              TextField(controller: descController, decoration: const InputDecoration(labelText: 'Description')),
-              TextField(controller: addressController, decoration: const InputDecoration(labelText: 'Address')),
-              TextField(controller: priceController, decoration: const InputDecoration(labelText: 'Price per meal'), keyboardType: TextInputType.number),
-            ],
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Edit Kitchen'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Name')),
+                TextField(controller: descController, decoration: const InputDecoration(labelText: 'Description')),
+                TextField(controller: addressController, decoration: const InputDecoration(labelText: 'Address')),
+                TextField(controller: priceController, decoration: const InputDecoration(labelText: 'Price per meal'), keyboardType: TextInputType.number),
+                const SizedBox(height: 12),
+                CheckboxListTile(
+                  title: const Text('Pure Veg'),
+                  value: isVegVal,
+                  onChanged: (val) => setDialogState(() => isVegVal = val ?? false),
+                ),
+                CheckboxListTile(
+                  title: const Text('Non-Veg Available'),
+                  value: isNonVegVal,
+                  onChanged: (val) => setDialogState(() => isNonVegVal = val ?? false),
+                ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                try {
+                  final k = KitchenModel(
+                    id: kitchen.id,
+                    name: nameController.text,
+                    imageUrl: kitchen.imageUrl,
+                    rating: kitchen.rating,
+                    description: descController.text,
+                    isVeg: isVegVal,
+                    isNonVeg: isNonVegVal,
+                    lat: kitchen.lat,
+                    long: kitchen.long,
+                    address: addressController.text,
+                    pricePerMeal: double.tryParse(priceController.text) ?? kitchen.pricePerMeal,
+                    isApproved: kitchen.isApproved,
+                  );
+                  await ref.read(supabaseServiceProvider).updateKitchen(k);
+                  ref.invalidate(adminKitchensProvider);
+                  if (context.mounted) Navigator.pop(context);
+                } catch (e) {
+                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                final k = KitchenModel(
-                  id: kitchen.id,
-                  name: nameController.text,
-                  imageUrl: kitchen.imageUrl,
-                  rating: kitchen.rating,
-                  description: descController.text,
-                  isVeg: kitchen.isVeg,
-                  isNonVeg: kitchen.isNonVeg,
-                  lat: kitchen.lat,
-                  long: kitchen.long,
-                  address: addressController.text,
-                  pricePerMeal: double.tryParse(priceController.text) ?? kitchen.pricePerMeal,
-                  isApproved: kitchen.isApproved,
-                );
-                await ref.read(supabaseServiceProvider).updateKitchen(k);
-                ref.invalidate(adminKitchensProvider);
-                if (context.mounted) Navigator.pop(context);
-              } catch (e) {
-                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
       ),
     );
   }
@@ -461,7 +513,7 @@ class AdminKitchenCard extends ConsumerWidget {
                   kitchenId: kitchenId,
                   name: nameController.text,
                   description: descController.text,
-                  price: double.parse(priceController.text),
+                  price: double.tryParse(priceController.text) ?? 0.0,
                   category: categoryController.text,
                   imageUrl: '',
                 );
@@ -518,7 +570,7 @@ class AdminKitchenCard extends ConsumerWidget {
                   kitchenId: m.kitchenId,
                   name: nameController.text,
                   description: descController.text,
-                  price: double.parse(priceController.text),
+                  price: double.tryParse(priceController.text) ?? m.price,
                   category: categoryController.text,
                   imageUrl: m.imageUrl,
                 );
@@ -859,7 +911,7 @@ class AdminProfileTab extends ConsumerWidget {
                     ListTile(
                       leading: const Icon(Icons.logout, color: Colors.red),
                       title: const Text('Logout Securely', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-                      onTap: () => ref.read(supabaseServiceProvider).signOut(),
+                      onTap: () => ref.read(authNotifierProvider.notifier).signOut(),
                     ),
                   ],
                 ),

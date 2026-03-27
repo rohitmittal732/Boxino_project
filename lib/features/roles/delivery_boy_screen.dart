@@ -58,12 +58,23 @@ class _DeliveryBoyScreenState extends ConsumerState<DeliveryBoyScreen> {
 
       try {
         final position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+        final userId = ref.read(currentUserProvider);
         
-        await Future.wait(activeDeliveries.map((d) {
+        List<Future> futures = [];
+        
+        // 1. Update global location in users table
+        if (userId != null) {
+          futures.add(service.updateUserLocation(userId, position.latitude, position.longitude));
+        }
+
+        // 2. Update active orders for live tracking
+        futures.addAll(activeDeliveries.map((d) {
           return service.updateLiveLocation(d.id, position.latitude, position.longitude);
         }));
+
+        await Future.wait(futures);
         
-        print('DEBUG: Updated real GPS location for ${activeDeliveries.length} orders');
+        print('DEBUG: Updated real GPS location for ${activeDeliveries.length + 1} entities');
       } catch (e) {
         print('DEBUG: Location error: $e');
       }
@@ -72,6 +83,24 @@ class _DeliveryBoyScreenState extends ConsumerState<DeliveryBoyScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Listen for new assignments
+    ref.listen(deliveryOrdersProvider, (previous, next) {
+      if (next is AsyncData && previous is AsyncData) {
+        final newCount = next.value!.length;
+        final oldCount = previous.value!.length;
+        if (newCount > oldCount) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('🚀 New Order Assigned to You!'),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
+      }
+    });
+
     final deliveriesAsync = ref.watch(deliveryOrdersProvider);
     final pendingAsync = ref.watch(pendingOrdersProvider);
     final isOnline = ref.watch(isOnlineProvider);
@@ -100,13 +129,13 @@ class _DeliveryBoyScreenState extends ConsumerState<DeliveryBoyScreen> {
             ),
             IconButton(
               icon: const Icon(Icons.logout),
-              onPressed: () => ref.read(supabaseServiceProvider).signOut(),
+              onPressed: () => ref.read(authNotifierProvider.notifier).signOut(),
             ),
           ],
           bottom: const TabBar(
             labelColor: AppTheme.primaryOrange,
             indicatorColor: AppTheme.primaryOrange,
-            isScrollable: true,
+            isScrollable: false,
             tabs: [
               Tab(text: 'Tasks', icon: Icon(Icons.delivery_dining)),
               Tab(text: 'New', icon: Icon(Icons.new_releases)),
@@ -225,7 +254,7 @@ class DeliveryProfileTab extends ConsumerWidget {
                     ListTile(
                       leading: const Icon(Icons.logout, color: Colors.red),
                       title: const Text('Logout Securely', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-                      onTap: () => ref.read(supabaseServiceProvider).signOut(),
+                      onTap: () => ref.read(authNotifierProvider.notifier).signOut(),
                     ),
                   ],
                 ),
@@ -238,7 +267,6 @@ class DeliveryProfileTab extends ConsumerWidget {
       error: (e, s) => Center(child: Text('Error loading profile: $e')),
     );
   }
-}
 }
 
 class DeliveryEarningsTab extends ConsumerWidget {

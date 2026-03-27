@@ -124,10 +124,14 @@ final deliveryOrdersProvider = StreamProvider<List<OrderModel>>((ref) {
   );
 });
 
-// ─── Live Order Stream Provider (Family) ──────────────────────
 final liveOrderStreamProvider = StreamProvider.family<List<Map<String, dynamic>>, String>((ref, orderId) {
   final service = ref.read(supabaseServiceProvider);
   return service.getLiveOrderStream(orderId);
+});
+
+final deliveryLocationStreamProvider = StreamProvider.family<List<Map<String, dynamic>>, String>((ref, userId) {
+  final service = ref.read(supabaseServiceProvider);
+  return service.getDeliveryBoyLocationStream(userId);
 });
 
 // ─── Cart Management ──────────────────────────────────────────
