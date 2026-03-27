@@ -101,39 +101,33 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
 
       // 2. Authenticated users
       if (authenticated) {
-        try {
-          final profile = ref.read(userProfileProvider).value;
-          String? role = profile?.role;
+        final user = Supabase.instance.client.auth.currentUser;
+        
+        // Extract role from JWT app_metadata without database querying!
+        final role = user?.appMetadata?['role'] as String? ?? 'user';
 
-          if (role == null) {
-            print('DEBUG: AppRouter: Role not in cache, fetching...');
-            role = await ref.read(userRoleProvider.future).timeout(
-              const Duration(milliseconds: 700),
-              onTimeout: () => 'user',
-            );
-          }
-
-          print('DEBUG: AppRouter: Resolved role: $role');
+        print('DEBUG: AppRouter: Resolved JWT role: $role');
           
-          // Prevent auth pages while logged in
-          if (_authRoutes.contains(location)) {
-            if (role == 'admin') return '/admin';
-            if (role == 'delivery') return '/delivery';
+        // Prevent traversing back to login/signup while logged in
+        if (_authRoutes.contains(location)) {
+          if (role == 'admin') return '/admin';
+          if (role == 'delivery') return '/delivery';
+          return '/home';
+        }
+
+        // Role-based route protection guards
+        if (location == '/admin' && role != 'admin') return '/home';
+        if (location == '/delivery' && role != 'delivery') return '/home';
+        
+        // If on root (Splash), send to correct landing page
+        if (location == '/') {
+          if (role == 'admin') {
+            return '/admin';
+          } else if (role == 'delivery') {
+            return '/delivery';
+          } else {
             return '/home';
           }
-
-          // Role-based protection
-          if (location == '/admin' && role != 'admin') return '/home';
-          if (location == '/delivery' && role != 'delivery') return '/home';
-          
-          // If on root (Splash), send to correct home
-          if (location == '/') {
-            if (role == 'admin') return '/admin';
-            if (role == 'delivery') return '/delivery';
-            return '/home';
-          }
-        } catch (e) {
-          if (_authRoutes.contains(location)) return '/home';
         }
       }
 
