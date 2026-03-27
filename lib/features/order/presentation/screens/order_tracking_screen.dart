@@ -15,9 +15,9 @@ class OrderTrackingScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Listen for status changes to notify user
     ref.listen(liveOrderStreamProvider(orderId), (previous, next) {
-      if (next is AsyncData && previous is AsyncData) {
+      if (next is AsyncData && (previous == null || previous is AsyncData)) {
         final nextVal = next.valueOrNull;
-        final prevVal = previous.valueOrNull;
+        final prevVal = previous?.valueOrNull;
         if (nextVal != null && nextVal.isNotEmpty && prevVal != null && prevVal.isNotEmpty) {
           final newStatus = nextVal.first['status'];
           final oldStatus = prevVal.first['status'];

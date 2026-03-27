@@ -88,9 +88,9 @@ class _DeliveryBoyScreenState extends ConsumerState<DeliveryBoyScreen> {
   Widget build(BuildContext context) {
     // Listen for new assignments
     ref.listen(deliveryOrdersProvider, (previous, next) {
-      if (next is AsyncData && previous is AsyncData) {
+      if (next is AsyncData && (previous == null || previous is AsyncData)) {
         final newCount = next.valueOrNull?.length ?? 0;
-        final oldCount = previous.valueOrNull?.length ?? 0;
+        final oldCount = previous?.valueOrNull?.length ?? 0;
         if (newCount > oldCount) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(

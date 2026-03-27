@@ -20,9 +20,9 @@ class _OrderSummaryScreenState extends ConsumerState<OrderSummaryScreen> {
     final cartNotifier = ref.read(cartProvider.notifier);
     final userId = ref.read(currentUserProvider);
 
-    if (userId == null) {
+    if (userId == null || cart.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please login to place an order.')),
+        const SnackBar(content: Text('Please login and add items to place an order.')),
       );
       return;
     }
