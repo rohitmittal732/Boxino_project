@@ -35,8 +35,13 @@ import 'package:boxino/features/home/presentation/screens/map_screen.dart';
 import 'package:boxino/domain/models/app_models.dart';
 
 // ── Auth helper ─────────────────────────────────────────────────────────────
-bool get _isAuthenticated =>
-    Supabase.instance.client.auth.currentSession != null;
+bool get _isAuthenticated {
+  try {
+    return Supabase.instance.client.auth.currentSession != null;
+  } catch (_) {
+    return false;
+  }
+}
 
 // ── Protected routes — require auth ─────────────────────────────────────────
 const _protectedRoutes = [
@@ -79,7 +84,12 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
     refreshListenable: notifier,
     redirect: (context, state) async {
       final location = state.matchedLocation;
-      final authenticated = Supabase.instance.client.auth.currentSession != null;
+      bool authenticated = false;
+      try {
+        authenticated = Supabase.instance.client.auth.currentSession != null;
+      } catch (_) {
+        // Supabase not yet initialized
+      }
 
       // 1. Unauthenticated users go to login if trying to access protected routes
       if (_protectedRoutes.any((r) => location.startsWith(r))) {
