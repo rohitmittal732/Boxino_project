@@ -5,6 +5,7 @@ import 'package:boxino/core/providers/app_providers.dart';
 import 'package:boxino/core/providers/auth_notifier.dart';
 import 'package:boxino/domain/models/app_models.dart';
 import 'package:go_router/go_router.dart';
+import 'package:boxino/data/services/supabase_service.dart';
 import 'package:uuid/uuid.dart';
 
 class AdminPanelScreen extends ConsumerStatefulWidget {
