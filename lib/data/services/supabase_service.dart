@@ -195,6 +195,15 @@ class SupabaseService {
 
     final orderData = order.toJson();
     orderData['user_id'] = currentUser.id; // 🔥 Force correct user_id
+    
+    // Denormalize user metadata for UI performance
+    final userProfile = await getUserProfile(currentUser.id);
+    if (userProfile != null) {
+      orderData['customer_name'] = userProfile.name;
+      orderData['customer_phone'] = userProfile.phone;
+      orderData['user_lat'] = userProfile.lat;
+      orderData['user_lng'] = userProfile.lng;
+    }
 
     int attempts = 0;
     while (attempts < 3) {
@@ -286,10 +295,18 @@ class SupabaseService {
     print('LOG: SupabaseService: Assigning order $orderId to $deliveryBoyId');
     
     // 🔥 STEP 1: Update orders table
-    await _client.from('orders').update({
+    // Denormalize rider metadata for UI performance
+    final riderProfile = await getUserProfile(deliveryBoyId);
+    final updates = {
       'status': 'accepted',
-      'delivery_boy_id': deliveryBoyId, // Using the new column name
-    }).eq('id', orderId);
+      'delivery_boy_id': deliveryBoyId,
+    };
+    if (riderProfile != null) {
+      updates['rider_name'] = riderProfile.name;
+      updates['rider_phone'] = riderProfile.phone;
+    }
+
+    await _client.from('orders').update(updates).eq('id', orderId);
 
     // 🔥 STEP 2: Upsert into deliveries table
     final existing = await _client.from('deliveries').select().eq('order_id', orderId).maybeSingle();

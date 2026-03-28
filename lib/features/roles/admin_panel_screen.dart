@@ -657,7 +657,18 @@ class _AdminOrdersTabState extends ConsumerState<AdminOrdersTab> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text('Status: ${o.status.toUpperCase()}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                   Text('Status: ${o.status.toUpperCase()}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                  const SizedBox(height: 12),
+                  // 🔥 Denormalized Customer Info
+                  Row(
+                    children: [
+                      const Icon(Icons.person, size: 16, color: Colors.grey),
+                      const SizedBox(width: 8),
+                      Text(o.customerName ?? 'User', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(width: 8),
+                      Text(o.customerPhone ?? '', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                    ],
+                  ),
                   const Divider(),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,

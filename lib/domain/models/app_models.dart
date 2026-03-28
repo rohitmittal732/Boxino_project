@@ -184,11 +184,11 @@ class OrderModel {
   final double? userLng;
   final String? areaName;
 
-  // Metadata from joins (optional)
-  final String? riderName;
-  final String? riderPhone;
+  // Metadata denormalized for UI performance
   final String? customerName;
   final String? customerPhone;
+  final String? riderName;
+  final String? riderPhone;
   
   // Legacy fields for UI compatibility
   final String? customization;
@@ -213,10 +213,10 @@ class OrderModel {
     this.userLat,
     this.userLng,
     this.areaName,
-    this.riderName,
-    this.riderPhone,
     this.customerName,
     this.customerPhone,
+    this.riderName,
+    this.riderPhone,
     this.customization,
     this.planType,
     this.mealType,
@@ -244,10 +244,10 @@ class OrderModel {
       userLat: (json['user_lat'] as num?)?.toDouble(),
       userLng: (json['user_lng'] as num?)?.toDouble(),
       areaName: (json['area_name'] as String?),
-      riderName: json['rider_profiles'] != null ? (json['rider_profiles']['name'] as String?) : null,
-      riderPhone: json['rider_profiles'] != null ? (json['rider_profiles']['phone'] as String?) : null,
-      customerName: json['customer_profiles'] != null ? (json['customer_profiles']['name'] as String?) : null,
-      customerPhone: json['customer_profiles'] != null ? (json['customer_profiles']['phone'] as String?) : null,
+      customerName: (json['customer_name'] as String?),
+      customerPhone: (json['customer_phone'] as String?),
+      riderName: (json['rider_name'] as String?),
+      riderPhone: (json['rider_phone'] as String?),
       customization: (json['customization'] as String?),
       planType: (json['plan_type'] as String?),
       mealType: (json['meal_type'] as String?),
@@ -273,6 +273,10 @@ class OrderModel {
     if (userLat != null) map['user_lat'] = userLat;
     if (userLng != null) map['user_lng'] = userLng;
     if (areaName != null) map['area_name'] = areaName;
+    if (customerName != null) map['customer_name'] = customerName;
+    if (customerPhone != null) map['customer_phone'] = customerPhone;
+    if (riderName != null) map['rider_name'] = riderName;
+    if (riderPhone != null) map['rider_phone'] = riderPhone;
     if (id.isNotEmpty) map['id'] = id;
     if (customization != null) map['customization'] = customization;
     if (planType != null) map['plan_type'] = planType;

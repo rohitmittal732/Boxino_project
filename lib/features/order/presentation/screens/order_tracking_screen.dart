@@ -9,6 +9,7 @@ import 'package:boxino/domain/models/app_models.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:async';
 
 // Provider to fetch route points from OSRM
 final routePointsProvider = FutureProvider.family<List<LatLng>, (LatLng, LatLng)>((ref, coords) async {
@@ -30,9 +31,17 @@ final routePointsProvider = FutureProvider.family<List<LatLng>, (LatLng, LatLng)
   return [];
 });
 
-class OrderTrackingScreen extends ConsumerWidget {
+class OrderTrackingScreen extends ConsumerStatefulWidget {
   final String orderId;
   const OrderTrackingScreen({super.key, required this.orderId});
+
+  @override
+  ConsumerState<OrderTrackingScreen> createState() => _OrderTrackingScreenState();
+}
+
+class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
+  final MapController _mapController = MapController();
+  bool _hasFitBounds = false;
 
   Future<void> _makePhoneCall(String phoneNumber) async {
     final Uri launchUri = Uri(
@@ -45,8 +54,8 @@ class OrderTrackingScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final orderStream = ref.watch(liveOrderStreamProvider(orderId));
+  Widget build(BuildContext context) {
+    final orderStream = ref.watch(liveOrderStreamProvider(widget.orderId));
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -67,23 +76,17 @@ class OrderTrackingScreen extends ConsumerWidget {
           final customerAsync = ref.watch(riderDetailsProvider(order.userId));
           
           // 2. Get Rider Location (Live)
-          double? riderLat = order.trackingLat;
-          double? riderLng = order.trackingLng;
+          final riderLocAsync = order.deliveryBoyId != null 
+              ? ref.watch(deliveryLocationStreamProvider(order.deliveryBoyId!))
+              : const AsyncValue<List<Map<String, dynamic>>>.data([]);
           
-          if (order.deliveryBoyId != null) {
-            final riderLocAsync = ref.watch(deliveryLocationStreamProvider(order.deliveryBoyId!));
-            riderLocAsync.whenData((data) {
-              if (data.isNotEmpty) {
-                riderLat = (data.first['lat'] as num?)?.toDouble();
-                riderLng = (data.first['lng'] as num?)?.toDouble();
-              }
-            });
-          }
-
-          // 3. Define Endpoints for Map
+          final riderData = riderLocAsync.valueOrNull?.firstOrNull;
+          final riderLat = (riderData?['lat'] as num?)?.toDouble() ?? order.trackingLat;
+          final riderLng = (riderData?['lng'] as num?)?.toDouble() ?? order.trackingLng;
+          
           final riderPos = (riderLat != null && riderLat != 0) ? LatLng(riderLat!, riderLng!) : null;
           
-          // Use user's specific order location if available, otherwise fallback to profile location
+          // 3. Define Endpoints for Map
           final userPos = order.userLat != null 
               ? LatLng(order.userLat!, order.userLng!) 
               : (customerAsync.valueOrNull?.lat != null ? LatLng(customerAsync.valueOrNull!.lat!, customerAsync.valueOrNull!.lng!) : null);
@@ -92,6 +95,17 @@ class OrderTrackingScreen extends ConsumerWidget {
           AsyncValue<List<LatLng>>? routeAsync;
           if (riderPos != null && userPos != null) {
             routeAsync = ref.watch(routePointsProvider((riderPos!, userPos!)));
+            
+            // Fit bounds once data is available
+            if (!_hasFitBounds) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _mapController.fitCamera(CameraFit.bounds(
+                  bounds: LatLngBounds(riderPos!, userPos!),
+                  padding: const EdgeInsets.all(70),
+                ));
+                _hasFitBounds = true;
+              });
+            }
           }
 
           return Column(
@@ -138,6 +152,7 @@ class OrderTrackingScreen extends ConsumerWidget {
                 child: Stack(
                   children: [
                     FlutterMap(
+                      mapController: _mapController,
                       options: MapOptions(
                         initialCenter: riderPos ?? userPos ?? const LatLng(26.9124, 75.7873),
                         initialZoom: 14.0,
