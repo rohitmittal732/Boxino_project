@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +9,26 @@ import 'package:boxino/domain/models/app_models.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+// Provider to fetch route points from OSRM
+final routePointsProvider = FutureProvider.family<List<LatLng>, (LatLng, LatLng)>((ref, coords) async {
+  final start = coords.$1;
+  final end = coords.$2;
+  
+  final url = 'https://router.project-osrm.org/route/v1/driving/${start.longitude},${start.latitude};${end.longitude},${end.latitude}?overview=full&geometries=geojson';
+  
+  try {
+    final response = await http.get(Uri.parse(url));
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      final List<dynamic> coordinates = data['routes'][0]['geometry']['coordinates'];
+      return coordinates.map((c) => LatLng(c[1].toDouble(), c[0].toDouble())).toList();
+    }
+  } catch (e) {
+    print('Error fetching route: $e');
+  }
+  return [];
+});
 
 class OrderTrackingScreen extends ConsumerWidget {
   final String orderId;
@@ -24,203 +46,175 @@ class OrderTrackingScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    ref.listen(liveOrderStreamProvider(orderId), (previous, next) {
-      if (next is AsyncData) {
-        final nextVal = next.valueOrNull;
-        final prevVal = previous?.valueOrNull;
-        if (nextVal != null && nextVal.isNotEmpty && prevVal != null && prevVal.isNotEmpty) {
-          final newStatus = nextVal.first['status'];
-          final oldStatus = prevVal.first['status'];
-          if (newStatus != oldStatus) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('📦 Order Status: ${newStatus.toString().toUpperCase()}'),
-                backgroundColor: AppTheme.primaryOrange,
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          }
-        }
-      }
-    });
-
     final orderStream = ref.watch(liveOrderStreamProvider(orderId));
 
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Text('Track Order'),
+        title: const Text('Track Order', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
+        centerTitle: true,
       ),
       body: orderStream.when(
         data: (orderData) {
           if (orderData.isEmpty) return const Center(child: Text('Order not found.'));
           
           final order = OrderModel.fromJson(orderData.first);
-          final kitchenAsync = ref.watch(kitchenByIdProvider(order.kitchenId));
           
-          // Watch rider location
-          double? liveLat = order.trackingLat;
-          double? liveLng = order.trackingLng;
+          // 1. Get Customer Info & Location
+          final customerAsync = ref.watch(riderDetailsProvider(order.userId));
+          
+          // 2. Get Rider Location (Live)
+          double? riderLat = order.trackingLat;
+          double? riderLng = order.trackingLng;
           
           if (order.deliveryBoyId != null) {
             final riderLocAsync = ref.watch(deliveryLocationStreamProvider(order.deliveryBoyId!));
             riderLocAsync.whenData((data) {
               if (data.isNotEmpty) {
-                liveLat = (data.first['lat'] as num?)?.toDouble();
-                liveLng = (data.first['lng'] as num?)?.toDouble();
+                riderLat = (data.first['lat'] as num?)?.toDouble();
+                riderLng = (data.first['lng'] as num?)?.toDouble();
               }
             });
           }
 
-          return SingleChildScrollView(
-            child: Column(
-              children: [
-                // 1. Kitchen Header
-                kitchenAsync.when(
-                  data: (kitchen) => Container(
-                    padding: const EdgeInsets.all(16),
-                    color: Colors.white,
-                    child: Row(
+          // 3. Define Endpoints for Map
+          final riderPos = (riderLat != null && riderLat != 0) ? LatLng(riderLat!, riderLng!) : null;
+          
+          // Use user's specific order location if available, otherwise fallback to profile location
+          final userPos = order.userLat != null 
+              ? LatLng(order.userLat!, order.userLng!) 
+              : (customerAsync.valueOrNull?.lat != null ? LatLng(customerAsync.valueOrNull!.lat!, customerAsync.valueOrNull!.lng!) : null);
+
+          // 4. Fetch Route
+          AsyncValue<List<LatLng>>? routeAsync;
+          if (riderPos != null && userPos != null) {
+            routeAsync = ref.watch(routePointsProvider((riderPos!, userPos!)));
+          }
+
+          return Column(
+            children: [
+              // ORDER STATUS HEADER
+              Container(
+                padding: const EdgeInsets.all(20),
+                color: Colors.white,
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Icon(Icons.restaurant, color: AppTheme.primaryOrange),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(kitchen?.name ?? 'Kitchen', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                              Text('Order #${order.id.substring(0, 8)}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                            ],
-                          ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(order.status.replaceAll('_', ' ').toUpperCase(), 
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.primaryOrange)),
+                            Text('Order #${order.id.substring(0, 8)}', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                          ],
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: order.paymentStatus == 'paid' ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            order.paymentStatus == 'paid' ? 'PAID' : 'PAY ON DELIVERY',
-                            style: TextStyle(
-                              color: order.paymentStatus == 'paid' ? Colors.green : Colors.orange,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 10,
+                        if (order.status == 'delivered')
+                          const Icon(Icons.check_circle, color: AppTheme.primaryGreen, size: 32)
+                        else
+                          const CircularProgressIndicator(strokeWidth: 3, color: AppTheme.primaryOrange),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: LinearProgressIndicator(
+                        value: _getStatusProgress(order.status),
+                        backgroundColor: Colors.grey.shade200,
+                        color: AppTheme.primaryGreen,
+                        minHeight: 8,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // MAP SECTION
+              Expanded(
+                child: Stack(
+                  children: [
+                    FlutterMap(
+                      options: MapOptions(
+                        initialCenter: riderPos ?? userPos ?? const LatLng(26.9124, 75.7873),
+                        initialZoom: 14.0,
+                      ),
+                      children: [
+                        TileLayer(
+                          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          userAgentPackageName: 'com.boxino.app',
+                        ),
+                        if (routeAsync != null)
+                          routeAsync.when(
+                            data: (points) => PolylineLayer(
+                              polylines: [
+                                Polyline(
+                                  points: points,
+                                  color: Colors.blue.withOpacity(0.7),
+                                  strokeWidth: 5,
+                                ),
+                              ],
                             ),
+                            loading: () => const SizedBox(),
+                            error: (e, s) => const SizedBox(),
                           ),
+                        MarkerLayer(
+                          markers: [
+                            if (riderPos != null)
+                              Marker(
+                                point: riderPos!,
+                                width: 60,
+                                height: 60,
+                                child: _buildMapMarker(Icons.motorcycle, AppTheme.primaryOrange),
+                              ),
+                            if (userPos != null)
+                              Marker(
+                                point: userPos!,
+                                width: 60,
+                                height: 60,
+                                child: _buildMapMarker(Icons.person_pin_circle, AppTheme.primaryGreen),
+                              ),
+                          ],
                         ),
                       ],
                     ),
-                  ),
-                  loading: () => const LinearProgressIndicator(),
-                  error: (e, s) => const SizedBox(),
-                ),
-
-                // 2. Map
-                SizedBox(
-                  height: 300,
-                  width: double.infinity,
-                  child: FlutterMap(
-                    options: MapOptions(
-                      initialCenter: (liveLat != null && liveLat != 0)
-                          ? LatLng(liveLat!, liveLng!)
-                          : const LatLng(26.9124, 75.7873),
-                      initialZoom: 15.0,
-                    ),
-                    children: [
-                      TileLayer(
-                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.boxino.app',
-                      ),
-                      MarkerLayer(
-                        markers: [
-                          if (liveLat != null && liveLat != 0)
-                            Marker(
-                              point: LatLng(liveLat!, liveLng!),
-                              width: 60,
-                              height: 60,
-                              child: const Icon(Icons.delivery_dining, color: AppTheme.primaryOrange, size: 45),
-                            ),
-                          if (kitchenAsync.valueOrNull != null)
-                            Marker(
-                              point: LatLng(kitchenAsync.valueOrNull!.lat, kitchenAsync.valueOrNull!.lng),
-                              width: 50,
-                              height: 50,
-                              child: const Icon(Icons.location_on, color: AppTheme.primaryGreen, size: 40),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-
-                // 3. Rider Info Card
-                if (order.deliveryBoyId != null)
-                  ref.watch(riderDetailsProvider(order.deliveryBoyId!)).when(
-                    data: (rider) => Container(
-                      margin: const EdgeInsets.all(16),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: AppTheme.cardShadow,
-                      ),
-                      child: Row(
+                    
+                    // Floating Info Overlays
+                    Positioned(
+                      bottom: 20,
+                      left: 16,
+                      right: 16,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          const CircleAvatar(
-                            radius: 25,
-                            backgroundColor: AppTheme.primaryOrange,
-                            child: Icon(Icons.person, color: Colors.white),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(rider?.name ?? 'Delivery Partner', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                const Text('On his way to you', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                              ],
+                          if (order.deliveryBoyId != null)
+                            _buildProfileCard(
+                              title: 'Delivery Partner',
+                              name: order.riderName ?? 'Assigning...',
+                              phone: order.riderPhone ?? '',
+                              icon: Icons.delivery_dining,
+                              color: AppTheme.primaryOrange,
                             ),
-                          ),
-                          IconButton.filled(
-                            onPressed: () => _makePhoneCall(rider?.phone ?? ''),
-                            icon: const Icon(Icons.call),
-                            style: IconButton.styleFrom(backgroundColor: AppTheme.primaryGreen),
+                          const SizedBox(height: 12),
+                          _buildProfileCard(
+                            title: 'Customer Details',
+                            name: order.customerName ?? customerAsync.valueOrNull?.name ?? 'User',
+                            phone: order.customerPhone ?? customerAsync.valueOrNull?.phone ?? '',
+                            address: order.areaName ?? order.userAddress,
+                            icon: Icons.home,
+                            color: AppTheme.primaryGreen,
+                            isCustomer: true,
                           ),
                         ],
                       ),
                     ),
-                    loading: () => const Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()),
-                    error: (e, s) => const SizedBox(),
-                  ),
-
-                // 4. Status Timeline
-                Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Track Order Status', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 20),
-                      _buildTimeline(order.status),
-                      const SizedBox(height: 20),
-                      Row(
-                        children: [
-                          const Icon(Icons.timer_outlined, color: Colors.grey, size: 18),
-                          const SizedBox(width: 8),
-                          Text(
-                            order.status == 'delivered' ? 'Order Delivered' : 'Estimated Delivery: 20 mins',
-                            style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.w500),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -229,53 +223,75 @@ class OrderTrackingScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildTimeline(String currentStatus) {
-    final statusFlow = ['pending', 'accepted', 'picked_up', 'on_the_way', 'delivered'];
-    final currentIndex = statusFlow.indexOf(currentStatus.toLowerCase());
+  double _getStatusProgress(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending': return 0.1;
+      case 'accepted': return 0.3;
+      case 'preparing': return 0.5;
+      case 'picked_up': return 0.7;
+      case 'on_the_way': return 0.85;
+      case 'delivered': return 1.0;
+      default: return 0.0;
+    }
+  }
 
-    return Column(
-      children: statusFlow.asMap().entries.map((entry) {
-        final index = entry.key;
-        final status = entry.value;
-        final isCompleted = index <= currentIndex;
-        final isLast = index == statusFlow.length - 1;
+  Widget _buildMapMarker(IconData icon, Color color) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 10, spreadRadius: 2)],
+        border: Border.all(color: color, width: 2),
+      ),
+      child: Icon(icon, color: color, size: 30),
+    );
+  }
 
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Column(
+  Widget _buildProfileCard({
+    required String title,
+    required String name,
+    required String phone,
+    String? address,
+    required IconData icon,
+    required Color color,
+    bool isCustomer = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 5))],
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: color.withOpacity(0.1),
+            child: Icon(icon, color: color),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 18,
-                  height: 18,
-                  decoration: BoxDecoration(
-                    color: isCompleted ? AppTheme.primaryGreen : Colors.grey.shade300,
-                    shape: BoxShape.circle,
-                  ),
-                  child: isCompleted ? const Icon(Icons.check, size: 10, color: Colors.white) : null,
-                ),
-                if (!isLast)
-                  Container(
-                    width: 2,
-                    height: 35,
-                    color: isCompleted ? AppTheme.primaryGreen : Colors.grey.shade300,
-                  ),
+                Text(title, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+                Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                if (address != null)
+                  Text(address, style: const TextStyle(fontSize: 12, color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                status.replaceAll('_', ' ').toUpperCase(),
-                style: TextStyle(
-                  fontWeight: isCompleted ? FontWeight.bold : FontWeight.normal,
-                  color: isCompleted ? Colors.black : Colors.grey,
-                  fontSize: 14,
-                ),
+          ),
+          if (phone.isNotEmpty)
+            IconButton.filled(
+              onPressed: () => _makePhoneCall(phone),
+              icon: const Icon(Icons.call, size: 20),
+              style: IconButton.styleFrom(
+                backgroundColor: color,
+                padding: const EdgeInsets.all(8),
               ),
             ),
-          ],
-        );
-      }).toList(),
+        ],
+      ),
     );
   }
 }

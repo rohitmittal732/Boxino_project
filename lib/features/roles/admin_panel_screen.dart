@@ -911,6 +911,13 @@ class AdminProfileTab extends ConsumerWidget {
                     ),
                     const Divider(height: 1),
                     ListTile(
+                      leading: const Icon(Icons.edit, color: AppTheme.primaryOrange),
+                      title: const Text('Edit Profile'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => context.push('/edit-profile'),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
                       leading: const Icon(Icons.logout, color: Colors.red),
                       title: const Text('Logout Securely', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
                       onTap: () async {

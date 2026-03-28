@@ -64,21 +64,25 @@ class _DeliveryBoyScreenState extends ConsumerState<DeliveryBoyScreen> {
         final position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
         final userId = ref.read(currentUserProvider);
         
-        List<Future> futures = [];
+        final List<Future> futures = [];
         
-        // 1. Update global location in users table
+        // 1. Update global location & Address in users table
         if (userId != null) {
-          futures.add(service.updateUserLocation(userId, position.latitude, position.longitude));
+          final address = await service.getAddressFromLatLng(position.latitude, position.longitude);
+          futures.add(service.updateUserProfile(
+            userId: userId,
+            lat: position.latitude, 
+            lng: position.longitude,
+            areaName: address,
+          ));
         }
 
         // 2. Update active orders for live tracking
-        futures.addAll(activeDeliveries.map((d) {
-          return service.updateLiveLocation(d.id, position.latitude, position.longitude);
-        }));
+        futures.addAll(activeDeliveries.map((d) => service.updateLiveLocation(d.id, position.latitude, position.longitude)));
 
         await Future.wait(futures);
         
-        print('DEBUG: Updated real GPS location for ${activeDeliveries.length + 1} entities');
+        print('DEBUG: Updated real GPS location and Address for ${activeDeliveries.length + 1} entities');
       } catch (e) {
         print('DEBUG: Location error: $e');
       }
@@ -261,6 +265,13 @@ class DeliveryProfileTab extends ConsumerWidget {
                       leading: const Icon(Icons.motorcycle, color: AppTheme.primaryOrange),
                       title: const Text('Account Type'),
                       trailing: Text(user?.role.toUpperCase() ?? 'DELIVERY', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.edit, color: AppTheme.primaryOrange),
+                      title: const Text('Edit Profile'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => context.push('/edit-profile'),
                     ),
                     const Divider(height: 1),
                     ListTile(

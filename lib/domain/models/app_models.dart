@@ -4,10 +4,8 @@ class UserModel {
   final String email;
   final String phone;
   final String role; // 'user', 'delivery', 'admin'
-  final double? lat;
-  final double? lng;
-  final String? preference; 
-  final String? locationName;
+  final String? userAddress;
+  final String? areaName;
 
   UserModel({
     required this.id,
@@ -19,6 +17,8 @@ class UserModel {
     this.lng,
     this.preference,
     this.locationName,
+    this.userAddress,
+    this.areaName,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -32,6 +32,8 @@ class UserModel {
       lng: (json['lng'] as num?)?.toDouble() ?? (json['long'] as num?)?.toDouble(),
       preference: json['preference'] as String?,
       locationName: json['location_name'] as String?,
+      userAddress: json['user_address'] as String?,
+      areaName: json['area_name'] as String?,
     );
   }
 
@@ -45,6 +47,8 @@ class UserModel {
         'lng': lng,
         'preference': preference,
         'location_name': locationName,
+        'user_address': userAddress,
+        'area_name': areaName,
       };
 }
 
@@ -172,6 +176,15 @@ class OrderModel {
   final String paymentStatus; // 'pending', 'paid'
   final double? trackingLat;
   final double? trackingLng;
+  final double? userLat;
+  final double? userLng;
+  final String? areaName;
+
+  // Metadata from joins (optional)
+  final String? riderName;
+  final String? riderPhone;
+  final String? customerName;
+  final String? customerPhone;
   
   // Legacy fields for UI compatibility
   final String? customization;
@@ -193,6 +206,13 @@ class OrderModel {
     this.paymentStatus = 'pending',
     this.trackingLat,
     this.trackingLng,
+    this.userLat,
+    this.userLng,
+    this.areaName,
+    this.riderName,
+    this.riderPhone,
+    this.customerName,
+    this.customerPhone,
     this.customization,
     this.planType,
     this.mealType,
@@ -217,6 +237,13 @@ class OrderModel {
       paymentStatus: json['payment_status'] as String? ?? 'pending',
       trackingLat: (json['tracking_lat'] as num?)?.toDouble() ?? (json['lat'] as num?)?.toDouble(),
       trackingLng: (json['tracking_lng'] as num?)?.toDouble() ?? (json['lng'] as num?)?.toDouble() ?? (json['long'] as num?)?.toDouble(),
+      userLat: (json['user_lat'] as num?)?.toDouble(),
+      userLng: (json['user_lng'] as num?)?.toDouble(),
+      areaName: json['area_name'] as String?,
+      riderName: json['rider_profiles'] != null ? json['rider_profiles']['name'] : null,
+      riderPhone: json['rider_profiles'] != null ? json['rider_profiles']['phone'] : null,
+      customerName: json['customer_profiles'] != null ? json['customer_profiles']['name'] : null,
+      customerPhone: json['customer_profiles'] != null ? json['customer_profiles']['phone'] : null,
       customization: json['customization'] as String?,
       planType: json['plan_type'] as String?,
       mealType: json['meal_type'] as String?,
@@ -239,6 +266,9 @@ class OrderModel {
     if (deliveryBoyId != null) map['delivery_boy_id'] = deliveryBoyId;
     if (trackingLat != null) map['tracking_lat'] = trackingLat;
     if (trackingLng != null) map['tracking_lng'] = trackingLng;
+    if (userLat != null) map['user_lat'] = userLat;
+    if (userLng != null) map['user_lng'] = userLng;
+    if (areaName != null) map['area_name'] = areaName;
     if (id.isNotEmpty) map['id'] = id;
     if (customization != null) map['customization'] = customization;
     if (planType != null) map['plan_type'] = planType;
