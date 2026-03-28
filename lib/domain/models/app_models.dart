@@ -4,6 +4,10 @@ class UserModel {
   final String email;
   final String phone;
   final String role; // 'user', 'delivery', 'admin'
+  final double? lat;
+  final double? lng;
+  final String? preference;
+  final String? locationName;
   final String? userAddress;
   final String? areaName;
 

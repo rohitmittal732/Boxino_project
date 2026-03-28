@@ -1,3 +1,4 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../domain/models/app_models.dart';
 import 'package:geocoding/geocoding.dart';
 import 'dart:async';
