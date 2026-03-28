@@ -200,31 +200,46 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                     
                     // Floating Info Overlays
                     Positioned(
-                      bottom: 20,
-                      left: 16,
-                      right: 16,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (order.deliveryBoyId != null)
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, -5))],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (order.deliveryBoyId != null)
+                              _buildProfileCard(
+                                title: 'Delivery Partner',
+                                name: order.riderName ?? 'Assigning...',
+                                phone: order.riderPhone ?? '',
+                                icon: Icons.delivery_dining,
+                                color: AppTheme.primaryOrange,
+                              ),
+                            const SizedBox(height: 12),
                             _buildProfileCard(
-                              title: 'Delivery Partner',
-                              name: order.riderName ?? 'Assigning...',
-                              phone: order.riderPhone ?? '',
-                              icon: Icons.delivery_dining,
-                              color: AppTheme.primaryOrange,
+                              title: 'Customer Details',
+                              name: order.customerName ?? customerAsync.valueOrNull?.name ?? 'User',
+                              phone: order.customerPhone ?? customerAsync.valueOrNull?.phone ?? '',
+                              address: order.areaName ?? order.userAddress,
+                              icon: Icons.home,
+                              color: AppTheme.primaryGreen,
+                              isCustomer: true,
                             ),
-                          const SizedBox(height: 12),
-                          _buildProfileCard(
-                            title: 'Customer Details',
-                            name: order.customerName ?? customerAsync.valueOrNull?.name ?? 'User',
-                            phone: order.customerPhone ?? customerAsync.valueOrNull?.phone ?? '',
-                            address: order.areaName ?? order.userAddress,
-                            icon: Icons.home,
-                            color: AppTheme.primaryGreen,
-                            isCustomer: true,
-                          ),
-                        ],
+                            
+                            // 🔥 RIDER SPECIFIC ACTIONS
+                            if (ref.watch(userProfileProvider).valueOrNull?.role == 'delivery' && (order.status != 'delivered' || order.paymentStatus != 'paid'))
+                              Padding(
+                                padding: const EdgeInsets.only(top: 20),
+                                child: _buildRiderActions(order, ref),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -307,6 +322,59 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildRiderActions(OrderModel order, WidgetRef ref) {
+    String label = '';
+    String nextStatus = '';
+    Color color = AppTheme.primaryOrange;
+
+    if (order.status == 'accepted' || order.status == 'preparing') {
+      label = 'PICK UP ORDER';
+      nextStatus = 'picked_up';
+      color = Colors.blue;
+    } else if (order.status == 'picked_up') {
+      label = 'ON THE WAY';
+      nextStatus = 'out_for_delivery';
+      color = Colors.deepPurple;
+    } else if (order.status == 'out_for_delivery') {
+      label = 'MARK AS DELIVERED';
+      nextStatus = 'delivered';
+      color = AppTheme.primaryGreen;
+    } else if (order.status == 'delivered' && order.paymentStatus != 'paid') {
+      label = 'PAYMENT RECEIVED ✅';
+      nextStatus = 'paid'; // We'll handle this specially in onPressed
+      color = Colors.green;
+    }
+
+    if (label.isEmpty) return const SizedBox();
+
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: () async {
+          final service = ref.read(supabaseServiceProvider);
+          if (nextStatus == 'paid') {
+            await service.updatePaymentStatus(order.id, 'paid');
+          } else {
+            await service.updateDeliveryStatus(order.id, nextStatus);
+          }
+          
+          if (mounted) {
+             ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(nextStatus == 'paid' ? 'Payment Confirmed!' : 'Status updated to ${nextStatus.replaceAll('_', ' ')}')),
+            );
+          }
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          elevation: 0,
+        ),
+        child: Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
       ),
     );
   }

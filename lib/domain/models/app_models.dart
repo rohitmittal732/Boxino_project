@@ -226,6 +226,9 @@ class OrderModel {
   /// Alias so delivery screen can use [totalPrice] interchangeably with [price]
   double get price => totalPrice;
 
+  /// Default rider earning per delivery
+  double get riderEarning => 40.0;
+
   factory OrderModel.fromJson(Map<String, dynamic> json) {
     return OrderModel(
       id: (json['id'] as String?) ?? '',

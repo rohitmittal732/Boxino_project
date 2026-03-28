@@ -10,6 +10,7 @@ import 'package:boxino/core/providers/auth_notifier.dart';
 import 'package:boxino/domain/models/app_models.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:boxino/features/roles/widgets/payout_request_sheet.dart';
 
 class DeliveryBoyScreen extends ConsumerStatefulWidget {
   const DeliveryBoyScreen({super.key});
@@ -19,11 +20,11 @@ class DeliveryBoyScreen extends ConsumerStatefulWidget {
 }
 
 class _DeliveryBoyScreenState extends ConsumerState<DeliveryBoyScreen> {
-  Timer? _locationTimer;
+  StreamSubscription<Position>? _positionStream;
 
   @override
   void dispose() {
-    _locationTimer?.cancel();
+    _positionStream?.cancel();
     super.dispose();
   }
 
@@ -32,7 +33,7 @@ class _DeliveryBoyScreenState extends ConsumerState<DeliveryBoyScreen> {
     if (val) {
       _startLocationUpdates();
     } else {
-      _locationTimer?.cancel();
+      _positionStream?.cancel();
     }
   }
 
@@ -49,8 +50,13 @@ class _DeliveryBoyScreenState extends ConsumerState<DeliveryBoyScreen> {
       if (permission == LocationPermission.denied) return;
     }
 
-    _locationTimer?.cancel();
-    _locationTimer = Timer.periodic(const Duration(seconds: 10), (timer) async {
+    _positionStream?.cancel();
+    _positionStream = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 10, // Update only after 10 meters move
+      ),
+    ).listen((position) async {
       final deliveries = ref.read(deliveryOrdersProvider).valueOrNull ?? [];
       final activeDeliveries = deliveries.where((d) => d.status == 'out_for_delivery').toList();
       
@@ -58,9 +64,7 @@ class _DeliveryBoyScreenState extends ConsumerState<DeliveryBoyScreen> {
       if (userId == null) return;
 
       try {
-        final position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
         final service = ref.read(supabaseServiceProvider);
-
         final List<Future> futures = [];
         
         // Update rider global position
@@ -78,8 +82,9 @@ class _DeliveryBoyScreenState extends ConsumerState<DeliveryBoyScreen> {
         }
 
         await Future.wait(futures);
+        print('DEBUG: Professional GPS Stream Updated: ${position.latitude}, ${position.longitude}');
       } catch (e) {
-        print('DEBUG: GPS Update Fail: $e');
+        print('DEBUG: GPS Stream Update Fail: $e');
       }
     });
   }
@@ -197,54 +202,58 @@ class DeliveryCard extends ConsumerWidget {
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Order #${order.id.substring(0, 8)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                _buildStatusBadge(order.status),
-              ],
-            ),
-            const Divider(height: 24),
-            
-            // Customer Info (Now using denormalized metadata)
-            Row(
-              children: [
-                const CircleAvatar(backgroundColor: AppTheme.primaryOrange, child: Icon(Icons.person, color: Colors.white)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(order.customerName ?? 'Unknown Customer', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      Text(order.userAddress, style: const TextStyle(color: Colors.grey, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
-                    ],
+      child: InkWell(
+        onTap: () => context.push('/order-tracking', extra: order.id),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Order #${order.id.substring(0, 8)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  _buildStatusBadge(order.status),
+                ],
+              ),
+              const Divider(height: 24),
+              
+              // Customer Info (Now using denormalized metadata)
+              Row(
+                children: [
+                  const CircleAvatar(backgroundColor: AppTheme.primaryOrange, child: Icon(Icons.person, color: Colors.white)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(order.customerName ?? 'Unknown Customer', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        Text(order.userAddress, style: const TextStyle(color: Colors.grey, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
                   ),
-                ),
-                IconButton(
-                  onPressed: () => _makeCall(order.customerPhone),
-                  icon: const Icon(Icons.call, color: Colors.green),
-                ),
-                IconButton(
-                  onPressed: order.userLat != null ? () => _launchMaps(order.userLat!, order.userLng!) : null,
-                  icon: const Icon(Icons.directions, color: Colors.blue),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            
-            // Workflow Buttons (Production Level Logic)
-            if (!isOnline)
-              const Center(child: Text('Go Online to action orders', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)))
-            else if (isLocked)
-              const Center(child: Text('Finish active task first 🔒', style: TextStyle(color: Colors.orange, fontSize: 12, fontWeight: FontWeight.bold)))
-            else
-              _buildWorkflowButton(context, service, ref),
-          ],
+                  IconButton(
+                    onPressed: () => _makeCall(order.customerPhone),
+                    icon: const Icon(Icons.call, color: Colors.green),
+                  ),
+                  IconButton(
+                    onPressed: order.userLat != null ? () => _launchMaps(order.userLat!, order.userLng!) : null,
+                    icon: const Icon(Icons.directions, color: Colors.blue),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              
+              // Workflow Buttons (Production Level Logic)
+              if (!isOnline)
+                const Center(child: Text('Go Online to action orders', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)))
+              else if (isLocked)
+                const Center(child: Text('Finish active task first 🔒', style: TextStyle(color: Colors.orange, fontSize: 12, fontWeight: FontWeight.bold)))
+              else
+                _buildWorkflowButton(context, service, ref),
+            ],
+          ),
         ),
       ),
     );
@@ -369,40 +378,146 @@ class DeliveryEarningsTab extends ConsumerWidget {
     if (userId == null) return const SizedBox();
 
     return FutureBuilder<List<dynamic>>(
+      // Fetch delivered AND paid OR delivered AND cash
       future: Supabase.instance.client.from('orders').select().eq('delivery_boy_id', userId).eq('status', 'delivered'),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        final completed = snapshot.data!;
-        return Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(gradient: LinearGradient(colors: [AppTheme.primaryOrange, AppTheme.deepOrange]), borderRadius: BorderRadius.circular(20)),
+        
+        final orders = snapshot.data!.map((o) => OrderModel.fromJson(o as Map<String, dynamic>)).toList();
+        final totalEarnings = orders.fold(0.0, (sum, o) => sum + o.riderEarning);
+
+        return CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Total Deliveries', style: TextStyle(color: Colors.white70)),
-                    Text('${completed.length}', style: const TextStyle(color: Colors.white, fontSize: 44, fontWeight: FontWeight.bold)),
+                    // Stats Card
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [AppTheme.primaryOrange, Color(0xFFFF8C00)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.primaryOrange.withOpacity(0.3),
+                            blurRadius: 20,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          const Text('Available Balance', style: TextStyle(color: Colors.white70, fontSize: 16)),
+                          const SizedBox(height: 8),
+                          Text('₹${totalEarnings.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontSize: 48, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 24),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              _buildMiniStat('Orders', '${orders.length}', Icons.shopping_bag_outlined),
+                              Container(width: 1, height: 30, color: Colors.white24),
+                              _buildMiniStat('Bonus', '₹0', Icons.stars_outlined),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 32),
+                    
+                    // Withdrawal Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: totalEarnings > 0 ? () {
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (context) => PayoutRequestSheet(amount: totalEarnings),
+                          );
+                        } : null,
+                        icon: const Icon(Icons.account_balance_wallet_outlined),
+                        label: const Text('REQUEST PAYOUT', style: TextStyle(fontWeight: FontWeight.bold)),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          side: const BorderSide(color: AppTheme.primaryOrange),
+                          foregroundColor: AppTheme.primaryOrange,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 40),
+                    const Text('Recent Deliveries', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 16),
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: completed.length,
-                  itemBuilder: (context, index) => ListTile(
-                    title: Text('Order #${completed[index]['id'].toString().substring(0, 8)}'),
-                    subtitle: Text(completed[index]['created_at'].toString().split('T')[0]),
-                    trailing: const Text('₹30', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
-                  ),
+            ),
+            
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final order = orders[index];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.shade100),
+                      ),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            backgroundColor: Colors.green.shade50,
+                            child: const Icon(Icons.check, color: Colors.green, size: 20),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Order #${order.id.substring(0, 8)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                Text(order.createdAt.toString().split(' ')[0], style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                              ],
+                            ),
+                          ),
+                          const Text('+ ₹40', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 16)),
+                        ],
+                      ),
+                    );
+                  },
+                  itemCount: orders.length,
                 ),
               ),
-            ],
-          ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 100)),
+          ],
         );
       },
+    );
+  }
+
+  Widget _buildMiniStat(String label, String value, IconData icon) {
+    return Column(
+      children: [
+        Icon(icon, color: Colors.white70, size: 20),
+        const SizedBox(height: 4),
+        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+      ],
     );
   }
 }
