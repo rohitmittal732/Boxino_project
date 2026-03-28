@@ -2,8 +2,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:boxino/data/services/supabase_service.dart';
 import 'package:boxino/core/theme/app_theme.dart';
 import 'package:boxino/core/providers/app_providers.dart';
 import 'package:boxino/domain/models/app_models.dart';
@@ -85,7 +83,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
           final riderLat = (riderData?['lat'] as num?)?.toDouble() ?? order.trackingLat;
           final riderLng = (riderData?['lng'] as num?)?.toDouble() ?? order.trackingLng;
           
-          final riderPos = (riderLat != null && riderLat != 0) ? LatLng(riderLat!, riderLng!) : null;
+          final riderPos = (riderLat != null && riderLat != 0) ? LatLng(riderLat, riderLng!) : null;
           
           // 3. Define Endpoints for Map
           final userPos = order.userLat != null 
@@ -95,13 +93,13 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
           // 4. Fetch Route
           AsyncValue<List<LatLng>>? routeAsync;
           if (riderPos != null && userPos != null) {
-            routeAsync = ref.watch(routePointsProvider((riderPos!, userPos!)));
+            routeAsync = ref.watch(routePointsProvider((riderPos, userPos)));
             
             // Fit bounds once data is available
             if (!_hasFitBounds) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 _mapController.fitCamera(CameraFit.bounds(
-                  bounds: LatLngBounds(riderPos!, userPos!),
+                  bounds: LatLngBounds(riderPos, userPos),
                   padding: const EdgeInsets.all(70),
                 ));
                 _hasFitBounds = true;
@@ -181,14 +179,14 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                           markers: [
                             if (riderPos != null)
                               Marker(
-                                point: riderPos!,
+                                point: riderPos,
                                 width: 60,
                                 height: 60,
                                 child: _buildMapMarker(Icons.motorcycle, AppTheme.primaryOrange),
                               ),
                             if (userPos != null)
                               Marker(
-                                point: userPos!,
+                                point: userPos,
                                 width: 60,
                                 height: 60,
                                 child: _buildMapMarker(Icons.person_pin_circle, AppTheme.primaryGreen),

@@ -103,14 +103,14 @@ final adminKitchensProvider = FutureProvider<List<KitchenModel>>((ref) async {
 final adminOrdersProvider = StreamProvider<List<OrderModel>>((ref) {
   final service = ref.read(supabaseServiceProvider);
   return service.getAdminOrdersStream().map(
-    (list) => list.map((m) => OrderModel.fromJson(m as Map<String, dynamic>)).toList(),
+    (list) => list.map((m) => OrderModel.fromJson(m)).toList(),
   );
 });
 
 final pendingOrdersProvider = StreamProvider<List<OrderModel>>((ref) {
   final service = ref.read(supabaseServiceProvider);
   return service.getPendingOrdersStream().map(
-    (list) => list.map((m) => OrderModel.fromJson(m as Map<String, dynamic>)).toList(),
+    (list) => list.map((m) => OrderModel.fromJson(m)).toList(),
   );
 });
 
@@ -125,7 +125,7 @@ final userOrdersProvider = StreamProvider<List<OrderModel>>((ref) {
   if (userId == null) return Stream.value([]);
   final service = ref.read(supabaseServiceProvider);
   return service.getUserOrdersStream(userId).map(
-    (list) => list.map((m) => OrderModel.fromJson(m as Map<String, dynamic>)).toList(),
+    (list) => list.map((m) => OrderModel.fromJson(m)).toList(),
   );
 });
 
@@ -135,7 +135,7 @@ final deliveryOrdersProvider = StreamProvider<List<OrderModel>>((ref) {
   if (userId == null) return Stream.value([]);
   final service = ref.read(supabaseServiceProvider);
   return service.getDeliveryBoyDeliveriesStream(userId).map(
-    (list) => list.map((m) => OrderModel.fromJson(m as Map<String, dynamic>)).toList(),
+    (list) => list.map((m) => OrderModel.fromJson(m)).toList(),
   );
 });
 

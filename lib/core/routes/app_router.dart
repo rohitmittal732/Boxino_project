@@ -115,7 +115,7 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
         final user = Supabase.instance.client.auth.currentUser;
         
         // Extract role from JWT app_metadata without database querying!
-        final role = user?.appMetadata?['role'] as String? ?? 'user';
+        final role = user?.appMetadata['role'] as String? ?? 'user';
 
         print('DEBUG: AppRouter: Resolved JWT role: $role');
           
