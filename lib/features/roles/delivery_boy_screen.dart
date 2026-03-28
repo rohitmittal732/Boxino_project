@@ -499,7 +499,7 @@ class DeliveryEarningsTab extends ConsumerWidget {
                       ),
                     );
                   },
-                  itemCount: orders.length,
+                  childCount: orders.length,
                 ),
               ),
             ),

@@ -5,6 +5,7 @@ import 'package:boxino/core/providers/app_providers.dart';
 import 'package:boxino/core/providers/auth_notifier.dart';
 import 'package:boxino/domain/models/app_models.dart';
 import 'package:go_router/go_router.dart';
+import 'package:boxino/data/services/supabase_service.dart';
 import 'package:uuid/uuid.dart';
 
 class AdminPanelScreen extends ConsumerStatefulWidget {
@@ -497,7 +498,7 @@ class AdminKitchenCard extends ConsumerWidget {
               TextField(controller: descController, decoration: const InputDecoration(labelText: 'Description')),
               TextField(controller: priceController, decoration: const InputDecoration(labelText: 'Price'), keyboardType: TextInputType.number),
               DropdownButtonFormField<String>(
-                initialValue: 'Veg',
+                value: 'Veg',
                 items: ['Veg', 'Non-Veg'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
                 onChanged: (val) => categoryController.text = val!,
                 decoration: const InputDecoration(labelText: 'Category'),
@@ -554,7 +555,7 @@ class AdminKitchenCard extends ConsumerWidget {
               TextField(controller: descController, decoration: const InputDecoration(labelText: 'Description')),
               TextField(controller: priceController, decoration: const InputDecoration(labelText: 'Price'), keyboardType: TextInputType.number),
               DropdownButtonFormField<String>(
-                initialValue: m.category,
+                value: m.category,
                 items: ['Veg', 'Non-Veg'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
                 onChanged: (val) => categoryController.text = val!,
                 decoration: const InputDecoration(labelText: 'Category'),

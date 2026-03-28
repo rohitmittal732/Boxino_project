@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:boxino/data/services/supabase_service.dart';
 import 'package:boxino/core/theme/app_theme.dart';
 import 'package:boxino/core/providers/app_providers.dart';
 import 'package:boxino/domain/models/app_models.dart';
@@ -83,7 +85,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
           final riderLat = (riderData?['lat'] as num?)?.toDouble() ?? order.trackingLat;
           final riderLng = (riderData?['lng'] as num?)?.toDouble() ?? order.trackingLng;
           
-          final riderPos = (riderLat != null && riderLat != 0) ? LatLng(riderLat, riderLng!) : null;
+          final riderPos = (riderLat != null && riderLat != 0 && riderLng != null) ? LatLng(riderLat, riderLng) : null;
           
           // 3. Define Endpoints for Map
           final userPos = order.userLat != null 
