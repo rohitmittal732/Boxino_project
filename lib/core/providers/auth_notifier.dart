@@ -92,12 +92,12 @@ class AuthNotifier extends StateNotifier<AuthStateModel> {
   }
 
   // ─── Sign Up ───────────────────────────────────────────────────────────────
-  Future<bool> signUp(String email, String password, String name) async {
+  Future<bool> signUp(String email, String password, String name, String phone) async {
     state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
     dev.log('Attempting signup for: $email', name: 'Auth');
 
     try {
-      final response = await _service.signUpWithEmail(email, password, name);
+      final response = await _service.signUpWithEmail(email, password, name, phone);
       
       if (response.user != null) {
         dev.log('Signup successful for ${response.user!.email}', name: 'Auth');

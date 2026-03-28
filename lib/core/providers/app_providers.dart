@@ -16,21 +16,36 @@ final otpEmailProvider = StateProvider<String>((ref) => '');
 // ─── Auth State Stream (reactive) ─────────────────────────────
 /// Streams auth state changes: logged-in, logged-out, token refresh, etc.
 final authStateProvider = StreamProvider<AuthState>((ref) {
-  return Supabase.instance.client.auth.onAuthStateChange;
+  try {
+    return Supabase.instance.client.auth.onAuthStateChange;
+  } catch (e) {
+    print('ERROR: authStateProvider: Failed to get auth state stream: $e');
+    return const Stream.empty();
+  }
 });
 
 // ─── Current User ID ──────────────────────────────────────────
 final currentUserProvider = Provider<String?>((ref) {
   // Watch auth state to react to login/logout
   ref.watch(authStateProvider);
-  final user = Supabase.instance.client.auth.currentUser;
-  print('DEBUG: currentUserProvider: ${user?.id} (${user?.email})');
-  return user?.id;
+  try {
+    final user = Supabase.instance.client.auth.currentUser;
+    print('DEBUG: currentUserProvider: ${user?.id} (${user?.email})');
+    return user?.id;
+  } catch (e) {
+    print('ERROR: currentUserProvider: $e');
+    return null;
+  }
 });
 
 // ─── Current User Email ───────────────────────────────────────
 final currentUserEmailProvider = Provider<String?>((ref) {
-  return Supabase.instance.client.auth.currentUser?.email;
+  try {
+    return Supabase.instance.client.auth.currentUser?.email;
+  } catch (e) {
+    print('ERROR: currentUserEmailProvider: $e');
+    return null;
+  }
 });
 
 // ─── Is Logged In ─────────────────────────────────────────────
@@ -132,6 +147,11 @@ final liveOrderStreamProvider = StreamProvider.family<List<Map<String, dynamic>>
 final deliveryLocationStreamProvider = StreamProvider.family<List<Map<String, dynamic>>, String>((ref, userId) {
   final service = ref.read(supabaseServiceProvider);
   return service.getDeliveryBoyLocationStream(userId);
+});
+
+final riderDetailsProvider = FutureProvider.family<UserModel?, String>((ref, userId) async {
+  final service = ref.read(supabaseServiceProvider);
+  return await service.getUserProfile(userId);
 });
 
 // ─── Cart Management ──────────────────────────────────────────

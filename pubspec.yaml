@@ -39,6 +39,7 @@ dependencies:
 
   # Live Tracking
   geolocator: ^11.0.1
+  url_launcher: ^6.2.5
   
   # Push Notifications
   firebase_core: ^2.24.2

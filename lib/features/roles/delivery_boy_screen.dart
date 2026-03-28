@@ -10,6 +10,7 @@ import 'package:boxino/domain/models/app_models.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 
 class DeliveryBoyScreen extends ConsumerStatefulWidget {
@@ -298,7 +299,7 @@ class DeliveryEarningsTab extends ConsumerWidget {
 
     // Use a Future for fetching true history directly from Supabase
     return FutureBuilder<List<dynamic>>(
-      future: Supabase.instance.client.from('orders').select().eq('delivery_id', userId).eq('status', 'delivered'),
+      future: Supabase.instance.client.from('orders').select().eq('delivery_boy_id', userId).eq('status', 'delivered'),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
         
@@ -344,110 +345,191 @@ class DeliveryCard extends ConsumerWidget {
   final OrderModel delivery;
   const DeliveryCard({super.key, required this.delivery});
 
+  Future<void> _makePhoneCall(String phoneNumber) async {
+    final Uri launchUri = Uri(scheme: 'tel', path: phoneNumber);
+    if (await canLaunchUrl(launchUri)) {
+      await launchUrl(launchUri);
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final customerAsync = ref.watch(riderDetailsProvider(delivery.userId));
+
     return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      margin: const EdgeInsets.only(bottom: 20),
+      elevation: 4,
+      child: Container(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Order Header
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(child: Text('Order ID: ${delivery.id.length > 8 ? delivery.id.substring(0, 8) : delivery.id}', style: const TextStyle(fontWeight: FontWeight.bold))),
+                Text('Order #${delivery.id.substring(0, 8)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 _buildStatusBadge(delivery.status),
               ],
             ),
             const Divider(height: 32),
-            Row(
-              children: [
-                const Text('Location:'),
-                const SizedBox(width: 8),
-                Expanded(child: Text(delivery.trackingLat != null ? '${delivery.trackingLat!.toStringAsFixed(4)}, ${delivery.trackingLng!.toStringAsFixed(4)}' : 'Awaiting Link...',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey), overflow: TextOverflow.ellipsis, textAlign: TextAlign.right)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => _showStatusDialog(context, ref, delivery),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryOrange,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: const Text('Update Delivery Status'),
+
+            // User Info Section
+            customerAsync.when(
+              data: (user) => Row(
+                children: [
+                  const CircleAvatar(
+                    backgroundColor: Colors.blueGrey,
+                    child: Icon(Icons.person, color: Colors.white),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(user?.name ?? 'Customer', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 2),
+                        Text(delivery.userAddress, style: const TextStyle(fontSize: 12, color: Colors.grey), maxLines: 2, overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
+                  ),
+                  IconButton.filled(
+                    onPressed: () => _makePhoneCall(user?.phone ?? ''),
+                    icon: const Icon(Icons.call),
+                    backgroundColor: AppTheme.primaryGreen,
+                  ),
+                ],
               ),
+              loading: () => const LinearProgressIndicator(),
+              error: (e, s) => const Text('Error loading user info'),
             ),
+
+            const SizedBox(height: 20),
+
+            // Action Buttons
+            _buildActionButtons(context, ref),
           ],
         ),
       ),
     );
   }
 
-  void _showStatusDialog(BuildContext context, WidgetRef ref, OrderModel delivery) {
-    final allStatuses = ['accepted', 'picked_up', 'on_the_way', 'delivered'];
-    final currentIndex = allStatuses.indexOf(delivery.status);
+  Widget _buildActionButtons(BuildContext context, WidgetRef ref) {
+    final service = ref.read(supabaseServiceProvider);
     
-    // Only show current status and the immediately next status to enforce linear flow
-    final statuses = allStatuses.where((s) {
-      final idx = allStatuses.indexOf(s);
-      return idx == currentIndex || idx == currentIndex + 1;
-    }).toList();
-    
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: statuses.map((s) => ListTile(
-          title: Text(s.replaceAll('_', ' ').toUpperCase()),
-          onTap: () async {
-            if (s == 'delivered') {
-              final confirmed = await showDialog<bool>(
-                context: context,
-                builder: (c) => AlertDialog(
-                  title: const Text('Cash Collected?'),
-                  content: const Text('Please confirm that you have collected the cash from the customer before marking this as delivered.'),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('No')),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryGreen),
-                      onPressed: () => Navigator.pop(c, true),
-                      child: const Text('Yes, Collected'),
-                    ),
-                  ],
-                ),
-              );
-              if (confirmed != true) return;
-            }
-            await ref.read(supabaseServiceProvider).updateDeliveryStatus(delivery.id, s);
+    // Status Flow: pending -> accepted -> picked_up -> on_the_way -> delivered
+    // After delivered: PAYMENT RECEIVED (if not paid)
+
+    if (delivery.status == 'pending') {
+      return _actionButton(
+        label: 'ACCEPT ORDER',
+        color: AppTheme.primaryGreen,
+        onPressed: () async {
+          final userId = ref.read(currentUserProvider);
+          if (userId != null) {
+            await service.acceptOrder(delivery.id, userId);
             ref.invalidate(deliveryOrdersProvider);
-            if (context.mounted) Navigator.pop(context);
-          },
-          trailing: delivery.status == s ? const Icon(Icons.check, color: AppTheme.primaryGreen) : null,
-        )).toList(),
+          }
+        },
+      );
+    }
+
+    if (delivery.status == 'accepted') {
+      return _actionButton(
+        label: 'PICKED UP',
+        color: Colors.blue,
+        onPressed: () async {
+          await service.updateDeliveryStatus(delivery.id, 'picked_up');
+          ref.invalidate(deliveryOrdersProvider);
+        },
+      );
+    }
+
+    if (delivery.status == 'picked_up') {
+      return _actionButton(
+        label: 'ON THE WAY',
+        color: Colors.deepPurple,
+        onPressed: () async {
+          await service.updateDeliveryStatus(delivery.id, 'on_the_way');
+          ref.invalidate(deliveryOrdersProvider);
+        },
+      );
+    }
+
+    if (delivery.status == 'on_the_way') {
+      return _actionButton(
+        label: 'MARK AS DELIVERED',
+        color: AppTheme.primaryOrange,
+        onPressed: () async {
+          await service.updateDeliveryStatus(delivery.id, 'delivered');
+          ref.invalidate(deliveryOrdersProvider);
+        },
+      );
+    }
+
+    if (delivery.status == 'delivered' && delivery.paymentStatus != 'paid') {
+      return Column(
+        children: [
+          const Text('Awaiting Payment Confirmation', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12)),
+          const SizedBox(height: 8),
+          _actionButton(
+            label: 'PAYMENT RECEIVED ✅',
+            color: Colors.green,
+            onPressed: () async {
+              await service.updatePaymentStatus(delivery.id, 'paid');
+              ref.invalidate(deliveryOrdersProvider);
+            },
+          ),
+        ],
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Center(
+        child: Text('COMPLETED', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+
+  Widget _actionButton({required String label, required Color color, required VoidCallback onPressed}) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
       ),
     );
   }
 
   Widget _buildStatusBadge(String status) {
     Color color = AppTheme.primaryGreen;
+    if (status == 'pending') color = Colors.grey;
     if (status == 'accepted') color = Colors.blue;
     if (status == 'picked_up') color = Colors.orange;
     if (status == 'on_the_way') color = Colors.purple;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color),
       ),
       child: Text(
-        status.replaceAll('_', ' ').toUpperCase(),
+        status.toUpperCase(),
         style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
       ),
     );

@@ -8,11 +8,14 @@ class SupabaseService {
   /// AUTH Logic ///
   //////////////////
 
-  Future<AuthResponse> signUpWithEmail(String email, String password, String name) async {
+  Future<AuthResponse> signUpWithEmail(String email, String password, String name, String phone) async {
     return await _client.auth.signUp(
       email: email, 
       password: password,
-      data: {'display_name': name},
+      data: {
+        'display_name': name,
+        'phone': phone,
+      },
     );
   }
 
@@ -78,6 +81,26 @@ class SupabaseService {
       print('ERROR: SupabaseService: Error fetching profile for $userId: $e');
       return null;
     }
+  }
+
+  Future<void> updateUserProfile({
+    required String userId,
+    String? name,
+    String? phone,
+    String? address,
+    double? lat,
+    double? lng,
+  }) async {
+    final Map<String, dynamic> updates = {};
+    if (name != null) updates['name'] = name;
+    if (phone != null) updates['phone'] = phone;
+    if (address != null) updates['user_address'] = address; // Note: using user_address if that's the column name
+    if (lat != null) updates['lat'] = lat;
+    if (lng != null) updates['lng'] = lng;
+
+    if (updates.isEmpty) return;
+    
+    await _client.from('users').update(updates).eq('id', userId);
   }
 
   Future<void> updateUserRole(String userId, String role) async {
@@ -162,10 +185,17 @@ class SupabaseService {
     final kitchen = await getKitchenById(order.kitchenId);
     if (kitchen == null) throw Exception('Selected kitchen does not exist');
 
+    // 🔥 FIX: Ensure we use the freshly fetched Auth ID
+    final currentUser = Supabase.instance.client.auth.currentUser;
+    if (currentUser == null) throw Exception('User not authenticated');
+
+    final orderData = order.toJson();
+    orderData['user_id'] = currentUser.id; // 🔥 Force correct user_id
+
     int attempts = 0;
     while (attempts < 3) {
       try {
-        final response = await _client.from('orders').insert(order.toJson()).select('id').single();
+        final response = await _client.from('orders').insert(orderData).select('id').single();
         final orderId = response['id'] as String;
         
         // Auto-assign delivery after a slight delay so User gets immediate confirmation
@@ -174,7 +204,10 @@ class SupabaseService {
         return orderId;
       } catch (e) {
         attempts++;
-        if (attempts >= 3) rethrow;
+        if (attempts >= 3) {
+          print('ERROR: Order creation failed after 3 attempts: $e');
+          rethrow;
+        }
         await Future.delayed(Duration(seconds: attempts)); // Exponential backoff
       }
     }
@@ -243,17 +276,16 @@ class SupabaseService {
   Future<void> assignDelivery(String orderId, String deliveryBoyId) async {
     print('LOG: SupabaseService: Assigning order $orderId to $deliveryBoyId');
     
-    // 🔥 STEP 1: Update orders table (main source of truth for realtime)
+    // 🔥 STEP 1: Update orders table
     await _client.from('orders').update({
       'status': 'accepted',
-      'delivery_id': deliveryBoyId,
+      'delivery_boy_id': deliveryBoyId, // Using the new column name
     }).eq('id', orderId);
 
-    // 🔥 STEP 2: Upsert into deliveries table (assignment record)
-    // We check for existing first to avoid Double Insert Bug as requested
-    final existing = await _client.from('deliveries').select().eq('order_id', orderId);
+    // 🔥 STEP 2: Upsert into deliveries table
+    final existing = await _client.from('deliveries').select().eq('order_id', orderId).maybeSingle();
     
-    if ((existing as List).isEmpty) {
+    if (existing == null) {
       await _client.from('deliveries').insert({
         'order_id': orderId,
         'delivery_boy_id': deliveryBoyId,
@@ -274,20 +306,23 @@ class SupabaseService {
   Future<void> updateDeliveryStatus(String orderId, String status) async {
     print('LOG: SupabaseService: Updating order $orderId to $status');
     
-    final Map<String, dynamic> updates = {'status': status};
-    if (status == 'delivered') {
-      updates['payment_status'] = 'paid';
-    }
-
-    // 🔥 SYNC: Update both tables
+    // Keep tables in sync
     await Future.wait([
-      _client.from('orders').update(updates).eq('id', orderId),
+      _client.from('orders').update({'status': status}).eq('id', orderId),
       _client.from('deliveries').update({'status': status}).eq('order_id', orderId),
     ]);
   }
 
+  Future<void> updatePaymentStatus(String orderId, String paymentStatus) async {
+    await _client.from('orders').update({'payment_status': paymentStatus}).eq('id', orderId);
+  }
+
   Future<void> updateLiveLocation(String orderId, double lat, double lng) async {
-    await _client.from('orders').update({'tracking_lat': lat, 'tracking_lng': lng}).eq('id', orderId);
+    // Sync to both for compatibility
+    await Future.wait([
+      _client.from('orders').update({'tracking_lat': lat, 'tracking_lng': lng}).eq('id', orderId),
+      _client.from('deliveries').update({'lat': lat, 'lng': lng}).eq('order_id', orderId),
+    ]);
   }
 
   Future<void> updateUserLocation(String userId, double lat, double lng) async {
@@ -308,8 +343,8 @@ class SupabaseService {
   }
 
   Stream<List<Map<String, dynamic>>> getDeliveryBoyDeliveriesStream(String deliveryBoyId) {
-    // This now watches ORDERS where delivery_id matches
-    return _client.from('orders').stream(primaryKey: ['id']).eq('delivery_id', deliveryBoyId);
+    // This now watches ORDERS where delivery_boy_id matches
+    return _client.from('orders').stream(primaryKey: ['id']).eq('delivery_boy_id', deliveryBoyId);
   }
 
   Stream<List<Map<String, dynamic>>> getLiveOrderStream(String orderId) {

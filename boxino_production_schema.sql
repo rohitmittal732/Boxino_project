@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS public.users (
   phone text,
   role text DEFAULT 'user'::text,
   lat numeric,
-  long numeric,
+  lng numeric,
   preference text,
   location_name text,
   fcm_token text, -- For push notifications later
@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS public.kitchens (
   is_veg boolean DEFAULT true,
   is_non_veg boolean DEFAULT false,
   lat numeric DEFAULT 0.0,
-  long numeric DEFAULT 0.0,
+  lng numeric DEFAULT 0.0,
   address text,
   price_per_meal numeric DEFAULT 0.0,
   is_approved boolean DEFAULT true,
@@ -85,7 +85,7 @@ CREATE TABLE IF NOT EXISTS public.orders (
   payment_status text DEFAULT 'pending',
   tracking_lat numeric, 
   tracking_lng numeric,
-  delivery_id uuid REFERENCES public.users(id),
+  delivery_boy_id uuid REFERENCES public.users(id),
   created_at timestamptz DEFAULT now()
 );
 

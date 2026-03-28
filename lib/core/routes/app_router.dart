@@ -29,6 +29,7 @@ import 'package:boxino/features/order/presentation/screens/order_tracking_screen
 import 'package:boxino/features/order/presentation/screens/order_history_screen.dart';
 import 'package:boxino/features/order/presentation/screens/plans_screen.dart';
 import 'package:boxino/features/profile/presentation/screens/profile_screen.dart';
+import 'package:boxino/features/profile/presentation/screens/edit_profile_screen.dart';
 import 'package:boxino/features/roles/admin_panel_screen.dart';
 import 'package:boxino/features/roles/delivery_boy_screen.dart';
 import 'package:boxino/features/home/presentation/screens/map_screen.dart';
@@ -37,8 +38,11 @@ import 'package:boxino/domain/models/app_models.dart';
 // ── Auth helper ─────────────────────────────────────────────────────────────
 bool get _isAuthenticated {
   try {
-    return Supabase.instance.client.auth.currentSession != null;
-  } catch (_) {
+    // Fail-safe check in case Supabase hasn't initialized correctly or connectivity is lost
+    final client = Supabase.instance.client;
+    return client.auth.currentSession != null;
+  } catch (e) {
+    print('WARNING: AppRouter: _isAuthenticated check failed: $e');
     return false;
   }
 }
@@ -55,6 +59,7 @@ const _protectedRoutes = [
   '/order-tracking',
   '/admin',
   '/delivery',
+  '/edit-profile',
 ];
 
 // ── Auth-only routes — redirect away if already logged in ───────────────────
@@ -73,10 +78,14 @@ class RouterNotifier extends ChangeNotifier {
     });
 
     // 2. 🔥 GOLDEN RULE: Raw Supabase Auth Listener (Fail-safe)
-    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-      print('DEBUG: AppRouter: onAuthStateChange event: ${data.event}');
-      notifyListeners();
-    });
+    try {
+      Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+        print('DEBUG: AppRouter: onAuthStateChange event: ${data.event}');
+        notifyListeners();
+      });
+    } catch (e) {
+      print('ERROR: AppRouter: Failed to attach auth listener: $e');
+    }
   }
 }
 
@@ -170,7 +179,11 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
     ),
     GoRoute(
       path: '/profile',
-      builder: (context, state) => const ProfileScreen(), // NEW
+      builder: (context, state) => const ProfileScreen(),
+    ),
+    GoRoute(
+      path: '/edit-profile',
+      builder: (context, state) => const EditProfileScreen(),
     ),
     GoRoute(
       path: '/kitchen-detail',

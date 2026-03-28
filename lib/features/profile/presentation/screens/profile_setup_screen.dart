@@ -13,6 +13,7 @@ class ProfileSetupScreen extends ConsumerStatefulWidget {
 
 class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _locationController = TextEditingController();
   String _selectedPreference = 'Veg';
   String _selectedGoal = 'Normal';
@@ -24,7 +25,8 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     // Pre-fill name if available from auth metadata
     final user = Supabase.instance.client.auth.currentUser;
     if (user != null) {
-      _nameController.text = user.userMetadata?['full_name'] ?? '';
+      _nameController.text = user.userMetadata?['display_name'] ?? '';
+      _phoneController.text = user.userMetadata?['phone'] ?? '';
     }
   }
 
@@ -34,6 +36,10 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
     if (name.isEmpty) {
       _showSnack('Please enter your name');
+      return;
+    }
+    if (_phoneController.text.trim().isEmpty) {
+      _showSnack('Please enter your phone number');
       return;
     }
     if (location.isEmpty) {
@@ -46,17 +52,14 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) throw Exception('Not authenticated');
 
-      // Save to Users table
-      await Supabase.instance.client.from('Users').upsert({
-        'id': user.id,
-        'email': user.email,
+      // Update profile in public.users table
+      await Supabase.instance.client.from('users').update({
         'name': name,
-        'location': location,
-        'food_preference': _selectedPreference,
-        'dietary_goal': _selectedGoal,
-        'role': 'user',
-        'created_at': DateTime.now().toIso8601String(),
-      });
+        'phone': _phoneController.text.trim(),
+        'location_name': location,
+        'preference': _selectedPreference,
+        // (Other fields can be added if your schema has them, e.g., 'dietary_goal')
+      }).eq('id', user.id);
 
       if (mounted) {
         _showSnack('Profile saved! 🎉');
@@ -82,6 +85,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _phoneController.dispose();
     _locationController.dispose();
     super.dispose();
   }
@@ -114,12 +118,25 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
             const SizedBox(height: 28),
 
             // Name Input
-            TextField(
+             TextField(
               controller: _nameController,
               textCapitalization: TextCapitalization.words,
               decoration: InputDecoration(
                 hintText: 'Full Name',
                 prefixIcon: const Icon(Icons.person_outline),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                filled: true, fillColor: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Phone Input
+            TextField(
+              controller: _phoneController,
+              keyboardType: TextInputType.phone,
+              decoration: InputDecoration(
+                hintText: 'Phone Number',
+                prefixIcon: const Icon(Icons.phone_outlined),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
                 filled: true, fillColor: Colors.white,
               ),

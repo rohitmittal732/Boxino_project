@@ -17,6 +17,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
   final _formKey                  = GlobalKey<FormState>();
   final _nameController           = TextEditingController();
   final _emailController          = TextEditingController();
+  final _phoneController          = TextEditingController();
   final _passwordController       = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
@@ -27,6 +28,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -37,9 +39,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
 
     final name     = _nameController.text.trim();
     final email    = _emailController.text.trim();
+    final phone    = _phoneController.text.trim();
     final password = _passwordController.text;
 
-    final success = await ref.read(authNotifierProvider.notifier).signUp(email, password, name);
+    final success = await ref.read(authNotifierProvider.notifier).signUp(email, password, name, phone);
 
     if (!mounted) return;
     if (success) {
@@ -94,6 +97,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
                       prefixIcon: Icons.email_outlined,
                       keyboardType: TextInputType.emailAddress,
                       validator: (v) => !v!.contains('@') ? 'Invalid email' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    AuthTextField(
+                      controller: _phoneController,
+                      hintText: 'Phone Number',
+                      prefixIcon: Icons.phone_outlined,
+                      keyboardType: TextInputType.phone,
+                      validator: (v) => v!.length < 10 ? 'Invalid phone number' : null,
                     ),
                     const SizedBox(height: 16),
                     AuthTextField(

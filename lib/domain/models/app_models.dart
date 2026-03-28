@@ -5,7 +5,7 @@ class UserModel {
   final String phone;
   final String role; // 'user', 'delivery', 'admin'
   final double? lat;
-  final double? long;
+  final double? lng;
   final String? preference; 
   final String? locationName;
 
@@ -16,7 +16,7 @@ class UserModel {
     required this.phone,
     required this.role,
     this.lat,
-    this.long,
+    this.lng,
     this.preference,
     this.locationName,
   });
@@ -29,7 +29,7 @@ class UserModel {
       phone: json['phone'] as String? ?? '',
       role: json['role'] as String? ?? 'user',
       lat: (json['lat'] as num?)?.toDouble(),
-      long: (json['long'] as num?)?.toDouble(),
+      lng: (json['lng'] as num?)?.toDouble() ?? (json['long'] as num?)?.toDouble(),
       preference: json['preference'] as String?,
       locationName: json['location_name'] as String?,
     );
@@ -42,7 +42,7 @@ class UserModel {
         'phone': phone,
         'role': role,
         'lat': lat,
-        'long': long,
+        'lng': lng,
         'preference': preference,
         'location_name': locationName,
       };
@@ -57,7 +57,7 @@ class KitchenModel {
   final bool isVeg;
   final bool isNonVeg;
   final double lat;
-  final double long;
+  final double lng;
   final String address;
   final double pricePerMeal;
   final bool isApproved;
@@ -71,7 +71,7 @@ class KitchenModel {
     required this.isVeg,
     required this.isNonVeg,
     required this.lat,
-    required this.long,
+    required this.lng,
     required this.address,
     required this.pricePerMeal,
     this.isApproved = true,
@@ -87,7 +87,7 @@ class KitchenModel {
       isVeg: json['is_veg'] as bool? ?? true,
       isNonVeg: json['is_non_veg'] as bool? ?? false,
       lat: (json['lat'] as num?)?.toDouble() ?? 0.0,
-      long: (json['long'] as num?)?.toDouble() ?? 0.0,
+      lng: (json['lng'] as num?)?.toDouble() ?? (json['long'] as num?)?.toDouble() ?? 0.0,
       address: json['address'] as String? ?? '',
       pricePerMeal: (json['price_per_meal'] as num?)?.toDouble() ?? 0.0,
       isApproved: json['is_approved'] as bool? ?? true,
@@ -103,7 +103,7 @@ class KitchenModel {
       'is_veg': isVeg,
       'is_non_veg': isNonVeg,
       'lat': lat,
-      'long': long,
+      'lng': lng,
       'address': address,
       'price_per_meal': pricePerMeal,
       'is_approved': isApproved,
@@ -165,7 +165,7 @@ class OrderModel {
   final List<dynamic> items; 
   final double totalPrice;
   final String status; // 'pending', 'accepted', 'preparing', 'out_for_delivery', 'delivered'
-  final String? deliveryId;
+  final String? deliveryBoyId;
   final DateTime createdAt;
   final String userAddress;
   final String paymentMethod; // 'cash', 'online'
@@ -186,7 +186,7 @@ class OrderModel {
     required this.items,
     required this.totalPrice,
     required this.status,
-    this.deliveryId,
+    this.deliveryBoyId,
     required this.createdAt,
     required this.userAddress,
     this.paymentMethod = 'cash',
@@ -210,13 +210,13 @@ class OrderModel {
       items: json['items'] is List ? json['items'] as List : (json['items'] is String ? [json['items']] : []),
       totalPrice: (json['total_price'] as num?)?.toDouble() ?? (json['price'] as num?)?.toDouble() ?? 0.0,
       status: json['status'] as String? ?? 'pending',
-      deliveryId: json['delivery_id'] as String?,
+      deliveryBoyId: json['delivery_boy_id'] as String? ?? json['delivery_id'] as String?,
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : DateTime.now(),
       userAddress: json['user_address'] as String? ?? '',
       paymentMethod: json['payment_method'] as String? ?? 'cash',
       paymentStatus: json['payment_status'] as String? ?? 'pending',
       trackingLat: (json['tracking_lat'] as num?)?.toDouble() ?? (json['lat'] as num?)?.toDouble(),
-      trackingLng: (json['tracking_lng'] as num?)?.toDouble() ?? (json['lng'] as num?)?.toDouble(),
+      trackingLng: (json['tracking_lng'] as num?)?.toDouble() ?? (json['lng'] as num?)?.toDouble() ?? (json['long'] as num?)?.toDouble(),
       customization: json['customization'] as String?,
       planType: json['plan_type'] as String?,
       mealType: json['meal_type'] as String?,
@@ -236,7 +236,7 @@ class OrderModel {
       'payment_method': paymentMethod,
       'payment_status': paymentStatus,
     };
-    if (deliveryId != null) map['delivery_id'] = deliveryId;
+    if (deliveryBoyId != null) map['delivery_boy_id'] = deliveryBoyId;
     if (trackingLat != null) map['tracking_lat'] = trackingLat;
     if (trackingLng != null) map['tracking_lng'] = trackingLng;
     if (id.isNotEmpty) map['id'] = id;
@@ -272,7 +272,7 @@ class DeliveryModel {
       deliveryBoyId: json['delivery_boy_id'] as String,
       status: json['status'] as String? ?? 'accepted',
       lat: (json['lat'] as num?)?.toDouble(),
-      lng: (json['lng'] as num?)?.toDouble(),
+      lng: (json['lng'] as num?)?.toDouble() ?? (json['long'] as num?)?.toDouble(),
     );
   }
 
