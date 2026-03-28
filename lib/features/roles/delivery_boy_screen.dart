@@ -397,7 +397,7 @@ class DeliveryCard extends ConsumerWidget {
                   IconButton.filled(
                     onPressed: () => _makePhoneCall(user?.phone ?? ''),
                     icon: const Icon(Icons.call),
-                    backgroundColor: AppTheme.primaryGreen,
+                    style: IconButton.styleFrom(backgroundColor: AppTheme.primaryGreen),
                   ),
                 ],
               ),

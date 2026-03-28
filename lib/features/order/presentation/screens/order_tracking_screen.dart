@@ -187,7 +187,7 @@ class OrderTrackingScreen extends ConsumerWidget {
                           IconButton.filled(
                             onPressed: () => _makePhoneCall(rider?.phone ?? ''),
                             icon: const Icon(Icons.call),
-                            backgroundColor: AppTheme.primaryGreen,
+                            style: IconButton.styleFrom(backgroundColor: AppTheme.primaryGreen),
                           ),
                         ],
                       ),
