@@ -83,6 +83,14 @@ class RouterNotifier extends ChangeNotifier {
         print('DEBUG: AppRouter: onAuthStateChange event: ${data.event}');
         notifyListeners();
       });
+
+      // 3. 🔥 NEW: Listen to role changes so guards refresh correctly
+      _ref.listen(userRoleProvider, (prev, next) {
+        if (prev?.valueOrNull != next.valueOrNull) {
+          notifyListeners();
+        }
+      });
+
     } catch (e) {
       print('ERROR: AppRouter: Failed to attach auth listener: $e');
     }
@@ -114,11 +122,14 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
       if (authenticated) {
         final user = Supabase.instance.client.auth.currentUser;
         
-        // 🔥 CRITICAL FIX: Get role from database (via AsyncValue) since appMetadata is unreliable
+        // 🔥 CRITICAL FIX: WATCH THE ROLE PROVIDER
+        // Since userRoleProvider is a FutureProvider, we use valueOrNull
+        // to avoid blocking the redirect during the initial fetch.
         final roleAsync = ref.watch(userRoleProvider);
         final role = roleAsync.valueOrNull ?? 'user';
 
         print('DEBUG: AppRouter: Resolved Database role: $role');
+
 
           
         // Prevent traversing back to login/signup while logged in

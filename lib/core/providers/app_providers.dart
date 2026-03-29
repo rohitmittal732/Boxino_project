@@ -70,12 +70,15 @@ final userProfileProvider = FutureProvider<UserModel?>((ref) async {
 });
 
 // ─── User Role Provider (Future) ─────────────────────────────
+/// Returns the user's role: 'user', 'delivery', or 'admin'.
+/// This is the source of truth for all role-based UI guards.
 final userRoleProvider = FutureProvider<String>((ref) async {
   final profile = await ref.watch(userProfileProvider.future);
   final role    = profile?.role ?? 'user';
   print('DEBUG: userRoleProvider: Resolved role: $role');
   return role;
 });
+
 
 // ─── Approved Kitchens Provider (Future) ──────────────────────
 final approvedKitchensProvider = FutureProvider<List<KitchenModel>>((ref) async {
@@ -155,21 +158,20 @@ final combinedTrackingProvider = StreamProvider.family<Map<String, dynamic>, Str
   
   await for (final orderList in service.getLiveOrderStream(orderId)) {
     if (orderList.isEmpty) {
-      yield {'order': null};
+      yield {'order': null, 'riderId': null};
       continue;
     }
     
     final orderMap = orderList.first;
     final order = OrderModel.fromJson(orderMap);
     
-    // We don't watch individual streams here to avoid recursive rebuilds,
-    // instead we yield the combined state.
     yield {
       'order': order,
       'riderId': order.deliveryBoyId,
     };
   }
 });
+
 
 
 final riderDetailsProvider = FutureProvider.family<UserModel?, String>((ref, userId) async {

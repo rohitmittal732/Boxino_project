@@ -7,8 +7,6 @@ import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 
-
-
 class SupabaseService {
   SupabaseClient get _client => Supabase.instance.client;
 
@@ -17,7 +15,7 @@ class SupabaseService {
   //////////////////
 
   Future<AuthResponse> signUpWithEmail(String email, String password, String name, String phone) async {
-    return await _client.auth.signUp(
+    final response = await _client.auth.signUp(
       email: email, 
       password: password,
       data: {
@@ -25,7 +23,29 @@ class SupabaseService {
         'phone': phone,
       },
     );
+
+    // 🔥 MANUAL INSERT FIX:
+    // User is created in auth.users, now manually create their record in public.users
+    if (response.user != null) {
+      try {
+        await _client.from('users').insert({
+          'id': response.user!.id,
+          'email': email,
+          'name': name,
+          'phone': phone,
+          'role': 'user', // Default role
+        });
+      } catch (e) {
+        // If profile insert fails, we should probably know, but the user is already signed up.
+        print('CRITICAL: SupabaseService: Failed to manually create user profile: $e');
+        // We could potentially delete the auth user here if we want atomic behavior,
+        // but often it's better to just let them re-try profile creation later.
+      }
+    }
+
+    return response;
   }
+
 
   /// Logs in the user.
   Future<AuthResponse> signInWithEmail(String email, String password) async {
@@ -219,12 +239,12 @@ class SupabaseService {
       }
     }
 
-    if (userProfile != null) {
-      orderData['customer_name'] = userProfile.name;
-      orderData['customer_phone'] = userProfile.phone;
-      orderData['user_lat'] = finalLat;
-      orderData['user_lng'] = finalLng;
-    }
+    // Assign customer info and coordinates to the order record (denormalized for speed)
+    orderData['customer_name'] = userProfile?.name ?? 'User';
+    orderData['customer_phone'] = userProfile?.phone ?? '';
+    orderData['user_lat'] = finalLat;
+    orderData['user_lng'] = finalLng;
+
 
 
     int attempts = 0;
@@ -293,7 +313,9 @@ class SupabaseService {
   }
 
   Future<Map<String, dynamic>> getRouteInfo(LatLng start, LatLng end) async {
+    // 🔥 OSRM expects [longitude, latitude]
     final url = 'https://router.project-osrm.org/route/v1/driving/${start.longitude},${start.latitude};${end.longitude},${end.latitude}?overview=full&geometries=geojson';
+
     try {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
@@ -313,7 +335,7 @@ class SupabaseService {
     } catch (e) {
       print('ERROR: SupabaseService: OSRM route error: $e');
     }
-    return {'points': [], 'duration': 0, 'distance': 0, 'durationMinutes': 0};
+    return {'points': <LatLng>[], 'duration': 0, 'distance': 0, 'durationMinutes': 0};
   }
 
 
@@ -378,12 +400,8 @@ class SupabaseService {
 
   Future<void> updateDeliveryStatus(String orderId, String status) async {
     print('LOG: SupabaseService: Updating order $orderId to $status');
-    
-    // Keep tables in sync
-    await Future.wait([
-      _client.from('orders').update({'status': status}).eq('id', orderId),
-      _client.from('deliveries').update({'status': status}).eq('order_id', orderId),
-    ]);
+    await _client.from('orders').update({'status': status}).eq('id', orderId);
+    await _client.from('deliveries').update({'status': status}).eq('order_id', orderId);
   }
 
   Future<void> updatePaymentStatus(String orderId, String paymentStatus) async {
