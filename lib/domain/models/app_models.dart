@@ -86,10 +86,11 @@ class KitchenModel {
   });
 
   factory KitchenModel.fromJson(Map<String, dynamic> json) {
+    const defaultImage = "https://www.treebo.com/blog/wp-content/uploads/2025/05/Pakhala-Bhata-1024x675.jpg";
     return KitchenModel(
       id: json['id'] as String,
       name: json['name'] as String,
-      imageUrl: json['image_url'] as String? ?? json['image'] as String? ?? '',
+      imageUrl: (json['image_url'] as String? ?? json['image'] as String? ?? '').isEmpty ? defaultImage : (json['image_url'] as String? ?? json['image'] as String? ?? ''),
       rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
       description: json['description'] as String? ?? '',
       isVeg: json['is_veg'] as bool? ?? true,
@@ -182,7 +183,13 @@ class OrderModel {
   final double? trackingLng;
   final double? userLat;
   final double? userLng;
+  final double? deliveryLat;
+  final double? deliveryLng;
   final String? areaName;
+
+
+  final int? adminEta;
+
 
   // Metadata denormalized for UI performance
   final String? customerName;
@@ -212,7 +219,12 @@ class OrderModel {
     this.trackingLng,
     this.userLat,
     this.userLng,
+    this.deliveryLat,
+    this.deliveryLng,
     this.areaName,
+
+
+    this.adminEta,
     this.customerName,
     this.customerPhone,
     this.riderName,
@@ -222,6 +234,7 @@ class OrderModel {
     this.mealType,
     this.deliveryTime,
   });
+
 
   /// Alias so delivery screen can use [totalPrice] interchangeably with [price]
   double get price => totalPrice;
@@ -246,7 +259,11 @@ class OrderModel {
       trackingLng: (json['tracking_lng'] as num?)?.toDouble() ?? (json['lng'] as num?)?.toDouble() ?? (json['long'] as num?)?.toDouble(),
       userLat: (json['user_lat'] as num?)?.toDouble(),
       userLng: (json['user_lng'] as num?)?.toDouble(),
+      deliveryLat: (json['delivery_lat'] as num?)?.toDouble(),
+      deliveryLng: (json['delivery_lng'] as num?)?.toDouble(),
       areaName: (json['area_name'] as String?),
+
+      adminEta: json['admin_eta'] as int?,
       customerName: (json['customer_name'] as String?),
       customerPhone: (json['customer_phone'] as String?),
       riderName: (json['rider_name'] as String?),
@@ -275,7 +292,11 @@ class OrderModel {
     if (trackingLng != null) map['tracking_lng'] = trackingLng;
     if (userLat != null) map['user_lat'] = userLat;
     if (userLng != null) map['user_lng'] = userLng;
+    if (deliveryLat != null) map['delivery_lat'] = deliveryLat;
+    if (deliveryLng != null) map['delivery_lng'] = deliveryLng;
     if (areaName != null) map['area_name'] = areaName;
+
+    if (adminEta != null) map['admin_eta'] = adminEta;
     if (customerName != null) map['customer_name'] = customerName;
     if (customerPhone != null) map['customer_phone'] = customerPhone;
     if (riderName != null) map['rider_name'] = riderName;
@@ -285,6 +306,7 @@ class OrderModel {
     if (planType != null) map['plan_type'] = planType;
     if (mealType != null) map['meal_type'] = mealType;
     if (deliveryTime != null) map['delivery_time'] = deliveryTime;
+
     return map;
   }
 }

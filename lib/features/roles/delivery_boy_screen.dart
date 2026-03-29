@@ -11,6 +11,7 @@ import 'package:boxino/domain/models/app_models.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:boxino/features/roles/widgets/payout_request_sheet.dart';
+import 'package:boxino/data/services/location_service.dart';
 
 class DeliveryBoyScreen extends ConsumerStatefulWidget {
   const DeliveryBoyScreen({super.key});
@@ -20,11 +21,10 @@ class DeliveryBoyScreen extends ConsumerStatefulWidget {
 }
 
 class _DeliveryBoyScreenState extends ConsumerState<DeliveryBoyScreen> {
-  StreamSubscription<Position>? _positionStream;
 
   @override
   void dispose() {
-    _positionStream?.cancel();
+    LocationService.stopTracking();
     super.dispose();
   }
 
@@ -33,7 +33,7 @@ class _DeliveryBoyScreenState extends ConsumerState<DeliveryBoyScreen> {
     if (val) {
       _startLocationUpdates();
     } else {
-      _positionStream?.cancel();
+      LocationService.stopTracking();
     }
   }
 
@@ -50,44 +50,43 @@ class _DeliveryBoyScreenState extends ConsumerState<DeliveryBoyScreen> {
       if (permission == LocationPermission.denied) return;
     }
 
-    _positionStream?.cancel();
-    _positionStream = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 10, // Update only after 10 meters move
-      ),
-    ).listen((position) async {
-      final deliveries = ref.read(deliveryOrdersProvider).valueOrNull ?? [];
-      final activeDeliveries = deliveries.where((d) => d.status == 'out_for_delivery').toList();
-      
-      final userId = ref.read(currentUserProvider);
-      if (userId == null) return;
-
-      try {
-        final service = ref.read(supabaseServiceProvider);
-        final List<Future> futures = [];
+    // Use optimized LocationService
+    LocationService.startTracking(
+      timeInterval: 10, // 10 seconds interval for scalability
+      distanceFilter: 15, // 15 meters filter
+      onLocationChanged: (position) async {
+        final deliveries = ref.read(deliveryOrdersProvider).valueOrNull ?? [];
+        final activeDeliveries = deliveries.where((d) => d.status == 'out_for_delivery').toList();
         
-        // Update rider global position
-        final address = await service.getAddressFromLatLng(position.latitude, position.longitude);
-        futures.add(service.updateUserProfile(
-          userId: userId,
-          lat: position.latitude, 
-          lng: position.longitude,
-          areaName: address,
-        ));
+        final userId = ref.read(currentUserProvider);
+        if (userId == null) return;
 
-        // Update live tracking for active orders
-        for (var order in activeDeliveries) {
-          futures.add(service.updateLiveLocation(order.id, position.latitude, position.longitude));
+        try {
+          final service = ref.read(supabaseServiceProvider);
+          final List<Future> futures = [];
+          
+          // Update rider global position
+          // Using a simple check to avoid too many geocoding calls
+          futures.add(service.updateUserProfile(
+            userId: userId,
+            lat: position.latitude, 
+            lng: position.longitude,
+          ));
+
+          // Update live tracking for active orders
+          for (var order in activeDeliveries) {
+            futures.add(service.updateLiveLocation(order.id, position.latitude, position.longitude));
+          }
+
+          await Future.wait(futures);
+          print('DEBUG: Throttled GPS Update: ${position.latitude}, ${position.longitude}');
+        } catch (e) {
+          print('DEBUG: GPS Throttled Update Fail: $e');
         }
-
-        await Future.wait(futures);
-        print('DEBUG: Professional GPS Stream Updated: ${position.latitude}, ${position.longitude}');
-      } catch (e) {
-        print('DEBUG: GPS Stream Update Fail: $e');
-      }
-    });
+      },
+    );
   }
+
 
   @override
   Widget build(BuildContext context) {

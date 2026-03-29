@@ -2,6 +2,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../domain/models/app_models.dart';
 import 'package:geocoding/geocoding.dart';
 import 'dart:async';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart';
+
 
 class SupabaseService {
   SupabaseClient get _client => Supabase.instance.client;
@@ -262,14 +266,39 @@ class SupabaseService {
   }
 
   Future<void> updateOrderStatus(String orderId, String status) async {
-    print('LOG: SupabaseService: Updating order status for $orderId to $status');
-    
-    // 🔥 Keeping both tables in sync
-    await Future.wait([
-      _client.from('orders').update({'status': status}).eq('id', orderId),
-      _client.from('deliveries').update({'status': status}).eq('order_id', orderId),
-    ]);
+    await updateDeliveryStatus(orderId, status);
   }
+
+
+  Future<void> updateAdminEta(String orderId, int eta) async {
+    await _client.from('orders').update({'admin_eta': eta}).eq('id', orderId);
+  }
+
+  Future<Map<String, dynamic>> getRouteInfo(LatLng start, LatLng end) async {
+    final url = 'https://router.project-osrm.org/route/v1/driving/${start.longitude},${start.latitude};${end.longitude},${end.latitude}?overview=full&geometries=geojson';
+    try {
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final route = data['routes'][0];
+        final List<dynamic> coordinates = route['geometry']['coordinates'];
+        final duration = (route['duration'] as num).toDouble(); // Seconds
+        final distance = (route['distance'] as num).toDouble(); // Meters
+        final points = coordinates.map((c) => LatLng(c[1].toDouble(), c[0].toDouble())).toList();
+        return {
+          'points': points, 
+          'duration': duration, 
+          'distance': distance,
+          'durationMinutes': (duration / 60).round(),
+        };
+      }
+    } catch (e) {
+      print('ERROR: SupabaseService: OSRM route error: $e');
+    }
+    return {'points': [], 'duration': 0, 'distance': 0, 'durationMinutes': 0};
+  }
+
+
 
   Future<List<OrderModel>> getUserOrders(String userId, {int limit = 10, int offset = 0}) async {
     final response = await _client
@@ -344,12 +373,18 @@ class SupabaseService {
   }
 
   Future<void> updateLiveLocation(String orderId, double lat, double lng) async {
-    // Sync to both for compatibility
+    // 🔥 PRO SCALABILITY: Sync to both tables using new explicit column names
     await Future.wait([
-      _client.from('orders').update({'tracking_lat': lat, 'tracking_lng': lng}).eq('id', orderId),
+      _client.from('orders').update({
+        'tracking_lat': lat, 
+        'tracking_lng': lng,
+        'delivery_lat': lat,
+        'delivery_lng': lng,
+      }).eq('id', orderId),
       _client.from('deliveries').update({'lat': lat, 'lng': lng}).eq('order_id', orderId),
     ]);
   }
+
 
   Future<void> updateUserLocation(String userId, double lat, double lng) async {
     await _client.from('users').update({'lat': lat, 'lng': lng}).eq('id', userId);

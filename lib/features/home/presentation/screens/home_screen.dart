@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,15 +8,37 @@ import 'package:boxino/domain/models/app_models.dart';
 
 final navIndexProvider = StateProvider<int>((ref) => 0);
 final selectedCategoryProvider = StateProvider<String>((ref) => 'All');
+final searchQueryProvider = StateProvider<String>((ref) => '');
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  Timer? _debounce;
+
+  void _onSearchChanged(String query) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      ref.read(searchQueryProvider.notifier).state = query;
+    });
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final selectedIdx = ref.watch(navIndexProvider);
     final kitchensAsync = ref.watch(approvedKitchensProvider);
     final selectedCategory = ref.watch(selectedCategoryProvider);
+    final searchQuery = ref.watch(searchQueryProvider).toLowerCase();
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -23,12 +46,13 @@ class HomeScreen extends ConsumerWidget {
         child: kitchensAsync.when(
           data: (kitchens) {
             final filteredKitchens = kitchens.where((k) {
-              if (selectedCategory == 'All') return true;
-              if (selectedCategory == 'Veg') return k.isVeg;
-              if (selectedCategory == 'Non-Veg') return k.isNonVeg;
-              if (selectedCategory == 'Fast Delivery') return true;
-              return true;
+              final matchesCategory = selectedCategory == 'All' || 
+                                     (selectedCategory == 'Veg' && k.isVeg) || 
+                                     (selectedCategory == 'Non-Veg' && k.isNonVeg);
+              final matchesSearch = k.name.toLowerCase().contains(searchQuery);
+              return matchesCategory && matchesSearch;
             }).toList();
+
 
             return CustomScrollView(
               slivers: [
@@ -38,11 +62,15 @@ class HomeScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildTopBar(context, ref),
+                        _buildTopBar(context),
+
                         const SizedBox(height: 24),
                         _buildSearchBar(),
                         const SizedBox(height: 24),
-                        _buildFilterChips(ref, selectedCategory),
+
+
+                        _buildFilterChips(selectedCategory),
+
                         const SizedBox(height: 32),
                         const Text(
                           'Nearby Home Kitchens',
@@ -105,7 +133,8 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildTopBar(BuildContext context, WidgetRef ref) {
+  Widget _buildTopBar(BuildContext context) {
+
     final userEmail = ref.watch(currentUserEmailProvider);
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -140,7 +169,9 @@ class HomeScreen extends ConsumerWidget {
 
   Widget _buildSearchBar() {
     return TextField(
+      onChanged: _onSearchChanged,
       decoration: InputDecoration(
+
         hintText: 'Search for homemade meals...',
         prefixIcon: const Icon(Icons.search),
         filled: true,
@@ -154,7 +185,9 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildFilterChips(WidgetRef ref, String selected) {
+
+  Widget _buildFilterChips(String selected) {
+
     final categories = ['All', 'Veg', 'Non-Veg', 'Fast Delivery'];
     return SizedBox(
       height: 40,

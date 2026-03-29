@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:boxino/core/theme/app_theme.dart';
@@ -156,7 +157,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen> {
                   final kitchen = KitchenModel(
                     id: const Uuid().v4(),
                     name: nameController.text,
-                    imageUrl: '',
+                    imageUrl: "https://www.treebo.com/blog/wp-content/uploads/2025/05/Pakhala-Bhata-1024x675.jpg",
                     rating: 0,
                     description: descController.text,
                     isVeg: isVegVal,
@@ -167,6 +168,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen> {
                     pricePerMeal: double.tryParse(priceController.text) ?? 100,
                     isApproved: true,
                   );
+
                   await ref.read(supabaseServiceProvider).createKitchen(kitchen);
                   ref.invalidate(adminKitchensProvider);
                   if (context.mounted) {
@@ -263,29 +265,73 @@ class AdminDashboardTab extends ConsumerWidget {
   }
 }
 
-class AdminKitchensTab extends ConsumerWidget {
+class AdminKitchensTab extends ConsumerStatefulWidget {
   const AdminKitchensTab({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AdminKitchensTab> createState() => _AdminKitchensTabState();
+}
+
+class _AdminKitchensTabState extends ConsumerState<AdminKitchensTab> {
+  String _searchQuery = '';
+  Timer? _debounce;
+
+  void _onSearchChanged(String query) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      setState(() => _searchQuery = query.toLowerCase());
+    });
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+
+  @override
+  Widget build(BuildContext context) {
     final kitchensAsync = ref.watch(adminKitchensProvider);
 
-    return kitchensAsync.when(
-      data: (kitchens) {
-        if (kitchens.isEmpty) return const Center(child: Text('No Kitchens Found.'));
-        return ListView.builder(
-          itemCount: kitchens.length,
-          itemBuilder: (context, index) {
-            final k = kitchens[index];
-            return AdminKitchenCard(kitchen: k);
-          },
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, s) => Center(child: Text('Error: $e')),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: TextField(
+            onChanged: _onSearchChanged,
+            decoration: InputDecoration(
+
+              hintText: 'Search kitchens by name...',
+              prefixIcon: const Icon(Icons.search),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+            ),
+          ),
+        ),
+        Expanded(
+          child: kitchensAsync.when(
+            data: (kitchens) {
+              final filtered = kitchens.where((k) => k.name.toLowerCase().contains(_searchQuery)).toList();
+              if (filtered.isEmpty) return const Center(child: Text('No Kitchens Found.'));
+              return ListView.builder(
+                itemCount: filtered.length,
+                itemBuilder: (context, index) {
+                  final k = filtered[index];
+                  return AdminKitchenCard(kitchen: k);
+                },
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, s) => Center(child: Text('Error: $e')),
+          ),
+        ),
+      ],
     );
   }
 }
+
 
 class AdminKitchenCard extends ConsumerWidget {
   final KitchenModel kitchen;
@@ -601,6 +647,23 @@ class AdminOrdersTab extends ConsumerStatefulWidget {
 
 class _AdminOrdersTabState extends ConsumerState<AdminOrdersTab> {
   String _filter = 'All';
+  String _searchQuery = '';
+  Timer? _debounce;
+
+  void _onSearchChanged(String query) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      setState(() => _searchQuery = query.toLowerCase());
+    });
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -628,14 +691,34 @@ class _AdminOrdersTabState extends ConsumerState<AdminOrdersTab> {
             ),
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: TextField(
+            onChanged: _onSearchChanged,
+            decoration: InputDecoration(
+
+              hintText: 'Search by Order ID or Customer Name...',
+              prefixIcon: const Icon(Icons.search),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
         Expanded(
+
           child: ordersAsync.when(
             data: (orders) {
               final filtered = orders.where((o) {
-                if (_filter == 'Pending') return o.status == 'pending';
-                if (_filter == 'Delivered') return o.status == 'delivered';
-                return true;
+                final matchesFilter = _filter == 'All' || 
+                                     (_filter == 'Pending' && o.status == 'pending') || 
+                                     (_filter == 'Delivered' && o.status == 'delivered');
+                final matchesSearch = o.id.toLowerCase().contains(_searchQuery) || 
+                                     (o.customerName?.toLowerCase().contains(_searchQuery) ?? false);
+                return matchesFilter && matchesSearch;
               }).toList();
+
 
               if (filtered.isEmpty) return const Center(child: Text('No orders found'));
 
@@ -677,20 +760,25 @@ class _AdminOrdersTabState extends ConsumerState<AdminOrdersTab> {
                       const Text('Update Status:'),
                       DropdownButton<String>(
                         value: o.status,
-                        items: ['pending', 'accepted', 'preparing', 'out_for_delivery', 'delivered']
+                        items: ['pending', 'accepted', 'preparing', 'picked_up', 'out_for_delivery', 'delivered', 'cancelled']
                             .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                             .toList(),
                         onChanged: (val) async {
                           if (val != null) {
                             try {
-                              await ref.read(supabaseServiceProvider).updateOrderStatus(o.id, val);
-                              // NO manual invalidation required, streams auto-update
+                              if (val == 'accepted' || val == 'preparing') {
+                                _showETAUpdateDialog(context, o.id);
+                              } else {
+                                await ref.read(supabaseServiceProvider).updateOrderStatus(o.id, val);
+                              }
+
                             } catch (e) {
                               if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red));
                             }
                           }
                         },
                       ),
+
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -702,7 +790,8 @@ class _AdminOrdersTabState extends ConsumerState<AdminOrdersTab> {
                         children: [
                           const Text('Assign Delivery:'),
                           ElevatedButton(
-                            onPressed: () => _showAssignDialog(context, ref, o.id, deliveryBoys),
+                            onPressed: () => _showAssignDialog(context, o.id, deliveryBoys),
+
                             child: const Text('Assign'),
                           ),
                         ],
@@ -726,7 +815,45 @@ class _AdminOrdersTabState extends ConsumerState<AdminOrdersTab> {
     );
   }
 
-  void _showAssignDialog(BuildContext context, WidgetRef ref, String orderId, List<UserModel> deliveryBoys) {
+  void _showETAUpdateDialog(BuildContext context, String orderId) {
+
+    final etaController = TextEditingController(text: '30');
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Update Status & Set ETA'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Set estimated delivery time in minutes:'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: etaController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'ETA (mins)', border: OutlineInputBorder()),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              final eta = int.tryParse(etaController.text) ?? 30;
+              final service = ref.read(supabaseServiceProvider);
+              await service.updateOrderStatus(orderId, 'preparing');
+              await service.updateAdminEta(orderId, eta);
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: const Text('Update'),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+  void _showAssignDialog(BuildContext context, String orderId, List<UserModel> deliveryBoys) {
+
     if (deliveryBoys.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No delivery personnel available.')));
       return;
@@ -760,7 +887,8 @@ class _AdminOrdersTabState extends ConsumerState<AdminOrdersTab> {
                   separatorBuilder: (context, index) => const Divider(height: 1, indent: 70),
                   itemBuilder: (context, index) {
                     final db = deliveryBoys[index];
-                    return _DeliveryBoyListTile(orderId: orderId, db: db, refAction: ref);
+                    return _DeliveryBoyListTile(orderId: orderId, db: db);
+
                   },
                 ),
               ),
@@ -772,22 +900,21 @@ class _AdminOrdersTabState extends ConsumerState<AdminOrdersTab> {
   }
 }
 
-class _DeliveryBoyListTile extends StatefulWidget {
+class _DeliveryBoyListTile extends ConsumerStatefulWidget {
   final String orderId;
   final UserModel db;
-  final WidgetRef refAction;
 
   const _DeliveryBoyListTile({
     required this.orderId,
     required this.db,
-    required this.refAction,
   });
 
   @override
-  State<_DeliveryBoyListTile> createState() => _DeliveryBoyListTileState();
+  ConsumerState<_DeliveryBoyListTile> createState() => _DeliveryBoyListTileState();
 }
 
-class _DeliveryBoyListTileState extends State<_DeliveryBoyListTile> {
+class _DeliveryBoyListTileState extends ConsumerState<_DeliveryBoyListTile> {
+
   bool _isLoading = false;
   bool _isSuccess = false;
 
@@ -819,7 +946,8 @@ class _DeliveryBoyListTileState extends State<_DeliveryBoyListTile> {
                   onPressed: () async {
                     setState(() => _isLoading = true);
                     try {
-                      await widget.refAction.read(supabaseServiceProvider).assignDelivery(widget.orderId, widget.db.id);
+                      await ref.read(supabaseServiceProvider).assignDelivery(widget.orderId, widget.db.id);
+
                       if (mounted) {
                         setState(() {
                           _isLoading = false;

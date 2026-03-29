@@ -149,6 +149,29 @@ final deliveryLocationStreamProvider = StreamProvider.family<List<Map<String, dy
   return service.getDeliveryBoyLocationStream(userId);
 });
 
+// 🔥 PRO FINAL: Consolidate tracking into ONE provider to avoid UI flickers and multiple stream overhead
+final combinedTrackingProvider = StreamProvider.family<Map<String, dynamic>, String>((ref, orderId) async* {
+  final service = ref.read(supabaseServiceProvider);
+  
+  await for (final orderList in service.getLiveOrderStream(orderId)) {
+    if (orderList.isEmpty) {
+      yield {'order': null};
+      continue;
+    }
+    
+    final orderMap = orderList.first;
+    final order = OrderModel.fromJson(orderMap);
+    
+    // We don't watch individual streams here to avoid recursive rebuilds,
+    // instead we yield the combined state.
+    yield {
+      'order': order,
+      'riderId': order.deliveryBoyId,
+    };
+  }
+});
+
+
 final riderDetailsProvider = FutureProvider.family<UserModel?, String>((ref, userId) async {
   final service = ref.read(supabaseServiceProvider);
   return await service.getUserProfile(userId);

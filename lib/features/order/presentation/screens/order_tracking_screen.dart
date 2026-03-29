@@ -56,7 +56,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final orderStream = ref.watch(liveOrderStreamProvider(widget.orderId));
+    final trackingAsync = ref.watch(combinedTrackingProvider(widget.orderId));
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -67,13 +67,12 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
         elevation: 0,
         centerTitle: true,
       ),
-      body: orderStream.when(
-        data: (orderData) {
-          if (orderData.isEmpty) return const Center(child: Text('Order not found.'));
+      body: trackingAsync.when(
+        data: (data) {
+          final order = data['order'] as OrderModel?;
+          if (order == null) return const Center(child: Text('Order not found.'));
           
-          final order = OrderModel.fromJson(orderData.first);
-          
-          // 1. Get Customer Info & Location
+          // 1. Get Customer Info
           final customerAsync = ref.watch(riderDetailsProvider(order.userId));
           
           // 2. Get Rider Location (Live)
@@ -84,6 +83,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
           final riderData = riderLocAsync.valueOrNull?.firstOrNull;
           final riderLat = (riderData?['lat'] as num?)?.toDouble() ?? order.trackingLat;
           final riderLng = (riderData?['lng'] as num?)?.toDouble() ?? order.trackingLng;
+
           
           final riderPos = (riderLat != null && riderLat != 0 && riderLng != null) ? LatLng(riderLat, riderLng) : null;
           
@@ -130,10 +130,26 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                         ),
                         if (order.status == 'delivered')
                           const Icon(Icons.check_circle, color: AppTheme.primaryGreen, size: 32)
+                        else if (order.status == 'cancelled')
+                          const Icon(Icons.cancel, color: AppTheme.errorRed, size: 32)
                         else
-                          const CircularProgressIndicator(strokeWidth: 3, color: AppTheme.primaryOrange),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              const CircularProgressIndicator(strokeWidth: 3, color: AppTheme.primaryOrange),
+                              const SizedBox(height: 4),
+                              Text(
+                                order.adminEta != null 
+                                  ? 'ETA: ${order.adminEta} mins' 
+                                  : 'ETA: 30 mins', // Fallback
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryOrange)
+                              ),
+                            ],
+                          ),
+
                       ],
                     ),
+
                     const SizedBox(height: 16),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(10),
@@ -220,6 +236,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                                 phone: order.riderPhone ?? '',
                                 icon: Icons.delivery_dining,
                                 color: AppTheme.primaryOrange,
+                                isMe: ref.watch(currentUserProvider) == order.deliveryBoyId,
                               ),
                             const SizedBox(height: 12),
                             _buildProfileCard(
@@ -229,8 +246,9 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                               address: order.areaName ?? order.userAddress,
                               icon: Icons.home,
                               color: AppTheme.primaryGreen,
-                              isCustomer: true,
+                              isMe: ref.watch(currentUserProvider) == order.userId,
                             ),
+
                             
                             // 🔥 RIDER SPECIFIC ACTIONS
                             if (ref.watch(userProfileProvider).valueOrNull?.role == 'delivery' && (order.status != 'delivered' || order.paymentStatus != 'paid'))
@@ -257,14 +275,16 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
   double _getStatusProgress(String status) {
     switch (status.toLowerCase()) {
       case 'pending': return 0.1;
-      case 'accepted': return 0.3;
-      case 'preparing': return 0.5;
-      case 'picked_up': return 0.7;
-      case 'on_the_way': return 0.85;
+      case 'accepted': return 0.25;
+      case 'preparing': return 0.45;
+      case 'picked_up': return 0.65;
+      case 'out_for_delivery': return 0.85;
       case 'delivered': return 1.0;
+      case 'cancelled': return 0.0;
       default: return 0.0;
     }
   }
+
 
   Widget _buildMapMarker(IconData icon, Color color) {
     return Container(
@@ -285,9 +305,10 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
     String? address,
     required IconData icon,
     required Color color,
-    bool isCustomer = false,
+    bool isMe = false,
   }) {
     return Container(
+
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -312,7 +333,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
               ],
             ),
           ),
-          if (phone.isNotEmpty)
+          if (phone.isNotEmpty && !isMe)
             IconButton.filled(
               onPressed: () => _makePhoneCall(phone),
               icon: const Icon(Icons.call, size: 20),
@@ -321,6 +342,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                 padding: const EdgeInsets.all(8),
               ),
             ),
+
         ],
       ),
     );
