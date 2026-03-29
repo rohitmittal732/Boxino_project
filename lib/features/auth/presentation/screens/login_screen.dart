@@ -4,6 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:boxino/core/theme/app_theme.dart';
 import 'package:boxino/core/providers/auth_notifier.dart';
 import 'package:boxino/features/auth/presentation/widgets/auth_widgets.dart';
+import 'package:boxino/core/providers/app_providers.dart';
+import 'package:boxino/domain/models/app_models.dart';
+
+
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});

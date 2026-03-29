@@ -281,7 +281,8 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
 
                             
                             // 🔥 RIDER SPECIFIC ACTIONS
-                            if (ref.watch(userProfileProvider).valueOrNull?.role == 'delivery' && (order.status != 'delivered' || order.paymentStatus != 'paid'))
+                            if (ref.watch(userRoleProvider).valueOrNull == 'delivery' && (order.status != 'delivered' || order.paymentStatus != 'paid'))
+
                               Padding(
                                 padding: const EdgeInsets.only(top: 20),
                                 child: _buildRiderActions(order, ref),
