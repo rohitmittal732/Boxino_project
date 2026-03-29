@@ -16,29 +16,16 @@ class SupabaseService {
       email: email, 
       password: password,
       data: {
-        'display_name': name,
+        'name': name, // Standardized for V4 Trigger
         'phone': phone,
+        'role': 'user',
       },
     );
 
-    // 🔥 MANUAL INSERT FIX:
-    // User is created in auth.users, now manually create their record in public.users
-    if (response.user != null) {
-      try {
-        await _client.from('users').insert({
-          'id': response.user!.id,
-          'email': email,
-          'name': name,
-          'phone': phone,
-          'role': 'user', // Default role
-        });
-      } catch (e) {
-        // If profile insert fails, we should probably know, but the user is already signed up.
-        print('CRITICAL: SupabaseService: Failed to manually create user profile: $e');
-        // We could potentially delete the auth user here if we want atomic behavior,
-        // but often it's better to just let them re-try profile creation later.
-      }
-    }
+    // 🔥 V4 MASTER FIX:
+    // User is created in auth.users, and the V4 Database Trigger automatically
+    // handles the sync to public.users with 'ON CONFLICT DO NOTHING'.
+    // No more manual client-side inserts that cause duplicate key errors.
 
     return response;
   }
