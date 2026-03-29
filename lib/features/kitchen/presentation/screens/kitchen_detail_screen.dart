@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:boxino/core/theme/app_theme.dart';
 import 'package:boxino/core/providers/app_providers.dart';
 import 'package:boxino/domain/models/app_models.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class KitchenDetailScreen extends ConsumerWidget {
   final KitchenModel kitchen;
@@ -24,9 +25,11 @@ class KitchenDetailScreen extends ConsumerWidget {
             expandedHeight: 200,
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
-              background: Image.network(
-                kitchen.imageUrl.isNotEmpty ? kitchen.imageUrl : 'https://via.placeholder.com/600x300?text=Kitchen+Image',
+              background: CachedNetworkImage(
+                imageUrl: kitchen.imageUrl.isNotEmpty ? kitchen.imageUrl : 'https://www.eurokidsindia.com/blog/wp-content/uploads/2023/03/best-healthy-food-for-kids-1.png',
                 fit: BoxFit.cover,
+                placeholder: (context, url) => Container(color: Colors.grey.shade100),
+                errorWidget: (context, url, error) => Image.network('https://www.eurokidsindia.com/blog/wp-content/uploads/2023/03/best-healthy-food-for-kids-1.png', fit: BoxFit.cover),
               ),
             ),
             leading: IconButton(
@@ -194,12 +197,11 @@ class MenuItemCard extends ConsumerWidget {
           Container(
             width: 80,
             height: 80,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              image: DecorationImage(
-                image: NetworkImage(menu.imageUrl.isNotEmpty ? menu.imageUrl : 'https://via.placeholder.com/100?text=Menu'),
-                fit: BoxFit.cover,
-              ),
+            child: CachedNetworkImage(
+              imageUrl: menu.imageUrl.isNotEmpty ? menu.imageUrl : 'https://www.eurokidsindia.com/blog/wp-content/uploads/2023/03/best-healthy-food-for-kids-1.png',
+              fit: BoxFit.cover,
+              placeholder: (context, url) => Container(color: Colors.grey.shade100),
+              errorWidget: (context, url, error) => Image.network('https://www.eurokidsindia.com/blog/wp-content/uploads/2023/03/best-healthy-food-for-kids-1.png', fit: BoxFit.cover),
             ),
           ),
           const SizedBox(width: 12),

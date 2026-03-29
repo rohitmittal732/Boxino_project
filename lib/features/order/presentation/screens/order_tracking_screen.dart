@@ -108,10 +108,10 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          _statusPoint('Ordered', true),
-                          _statusPoint('Preparing', _getStatusProgress(order.status) >= 0.45),
-                          _statusPoint('On Way', _getStatusProgress(order.status) >= 0.85),
-                          _statusPoint('Delivered', _getStatusProgress(order.status) >= 1.0),
+                          _statusPoint('Order Placed', true, Icons.shopping_basket_outlined),
+                          _statusPoint('Preparing', _getStatusProgress(order.status) >= 0.45, Icons.soup_kitchen_outlined),
+                          _statusPoint('On the Way', _getStatusProgress(order.status) >= 0.85, Icons.delivery_dining_outlined),
+                          _statusPoint('Delivered', _getStatusProgress(order.status) >= 1.0, Icons.check_circle_outline),
                         ],
                       ),
                     ],
@@ -178,12 +178,29 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
     );
   }
 
-  Widget _statusPoint(String label, bool active) {
+  Widget _statusPoint(String label, bool active, IconData icon) {
     return Column(
       children: [
-        Icon(active ? Icons.check_circle : Icons.radio_button_unchecked, size: 16, color: active ? AppTheme.primaryGreen : Colors.grey.shade300),
-        const SizedBox(height: 4),
-        Text(label, style: TextStyle(fontSize: 10, color: active ? Colors.black87 : Colors.grey, fontWeight: active ? FontWeight.bold : FontWeight.normal)),
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 500),
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: active ? AppTheme.primaryGreen.withOpacity(0.1) : Colors.grey.shade50,
+            shape: BoxShape.circle,
+            border: Border.all(color: active ? AppTheme.primaryGreen : Colors.grey.shade200, width: 2),
+          ),
+          child: Icon(icon, size: 20, color: active ? AppTheme.primaryGreen : Colors.grey.shade300),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 10,
+            color: active ? Colors.black87 : Colors.grey,
+            fontWeight: active ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
       ],
     );
   }

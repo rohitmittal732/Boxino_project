@@ -295,6 +295,7 @@ class SupabaseService {
     final updates = {
       'status': 'accepted',
       'delivery_boy_id': deliveryBoyId,
+      'admin_eta': 30, // Default for Lite Mode
     };
     if (riderProfile != null) {
       updates['rider_name'] = riderProfile.name;

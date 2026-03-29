@@ -157,7 +157,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen> {
                   final kitchen = KitchenModel(
                     id: const Uuid().v4(),
                     name: nameController.text,
-                    imageUrl: "https://www.treebo.com/blog/wp-content/uploads/2025/05/Pakhala-Bhata-1024x675.jpg",
+                    imageUrl: "https://www.eurokidsindia.com/blog/wp-content/uploads/2023/03/best-healthy-food-for-kids-1.png",
                     rating: 0,
                     description: descController.text,
                     isVeg: isVegVal,

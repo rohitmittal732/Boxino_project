@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:boxino/core/theme/app_theme.dart';
 import 'package:boxino/core/providers/app_providers.dart';
 import 'package:boxino/domain/models/app_models.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 final navIndexProvider = StateProvider<int>((ref) => 0);
 
@@ -246,12 +247,18 @@ class KitchenCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            height: 150,
-            decoration: BoxDecoration(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-              image: DecorationImage(
-                image: NetworkImage(kitchen.imageUrl.isNotEmpty ? kitchen.imageUrl : 'https://via.placeholder.com/400x200?text=Kitchen+Image'),
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            child: CachedNetworkImage(
+              imageUrl: kitchen.imageUrl.isNotEmpty ? kitchen.imageUrl : 'https://www.eurokidsindia.com/blog/wp-content/uploads/2023/03/best-healthy-food-for-kids-1.png',
+              height: 150,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              placeholder: (context, url) => Container(color: Colors.grey.shade100, height: 150),
+              errorWidget: (context, url, error) => Image.network(
+                'https://www.eurokidsindia.com/blog/wp-content/uploads/2023/03/best-healthy-food-for-kids-1.png',
+                height: 150,
+                width: double.infinity,
                 fit: BoxFit.cover,
               ),
             ),

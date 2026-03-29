@@ -80,7 +80,7 @@ class KitchenModel {
   });
 
   factory KitchenModel.fromJson(Map<String, dynamic> json) {
-    const defaultImage = "https://www.treebo.com/blog/wp-content/uploads/2025/05/Pakhala-Bhata-1024x675.jpg";
+    const defaultImage = "https://www.eurokidsindia.com/blog/wp-content/uploads/2023/03/best-healthy-food-for-kids-1.png";
     return KitchenModel(
       id: json['id'] as String,
       name: json['name'] as String,
