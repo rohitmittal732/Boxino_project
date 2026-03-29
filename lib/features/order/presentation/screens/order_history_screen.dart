@@ -36,7 +36,7 @@ class OrderHistoryScreen extends ConsumerWidget {
             },
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const SizedBox(),
         error: (e, s) => Center(child: Text('Error: $e')),
       ),
     );

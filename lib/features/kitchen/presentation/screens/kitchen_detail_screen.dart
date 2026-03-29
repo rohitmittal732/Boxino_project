@@ -100,7 +100,7 @@ class KitchenDetailScreen extends ConsumerWidget {
                 ),
               );
             },
-            loading: () => const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator())),
+            loading: () => const SliverToBoxAdapter(child: SizedBox()),
             error: (e, s) => SliverToBoxAdapter(child: Center(child: Text('Error: $e'))),
           ),
 

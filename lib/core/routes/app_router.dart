@@ -1,8 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// App Router — GoRouter with auth-based redirect guards.
-//
-// GUARDS:
-//   • Protected routes (/home, /profile-setup, /kitchen-detail, /subscription,
+//   • Protected routes (/home, /profile, /kitchen-detail, 
 //     /order-summary, /order-success, /order-tracking):
 //     → Redirect to /login if user has no active session.
 //   • Auth routes (/login, /signup):
@@ -22,17 +18,14 @@ import 'package:boxino/features/auth/presentation/screens/forgot_password_screen
 import 'package:boxino/features/profile/presentation/screens/profile_setup_screen.dart';
 import 'package:boxino/features/home/presentation/screens/home_screen.dart';
 import 'package:boxino/features/kitchen/presentation/screens/kitchen_detail_screen.dart';
-import 'package:boxino/features/subscription/presentation/screens/subscription_screen.dart';
 import 'package:boxino/features/order/presentation/screens/order_summary_screen.dart';
 import 'package:boxino/features/order/presentation/screens/order_success_screen.dart';
 import 'package:boxino/features/order/presentation/screens/order_tracking_screen.dart';
 import 'package:boxino/features/order/presentation/screens/order_history_screen.dart';
-import 'package:boxino/features/order/presentation/screens/plans_screen.dart';
 import 'package:boxino/features/profile/presentation/screens/profile_screen.dart';
 import 'package:boxino/features/profile/presentation/screens/edit_profile_screen.dart';
 import 'package:boxino/features/roles/admin_panel_screen.dart';
 import 'package:boxino/features/roles/delivery_boy_screen.dart';
-import 'package:boxino/features/home/presentation/screens/map_screen.dart';
 import 'package:boxino/domain/models/app_models.dart';
 
 // ── Auth helper ─────────────────────────────────────────────────────────────
@@ -51,7 +44,7 @@ bool get _isAuthenticated {
 const _protectedRoutes = [
   '/home',
   '/history',
-  '/plans',
+
   '/profile',
   '/kitchen-detail',
   '/order-summary',
@@ -187,11 +180,8 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
       builder: (context, state) => const OrderHistoryScreen(), // NEW
     ),
     GoRoute(
-      path: '/plans',
-      builder: (context, state) => const PlansScreen(), // NEW
-    ),
-    GoRoute(
       path: '/profile',
+
       builder: (context, state) => const ProfileScreen(),
     ),
     GoRoute(
@@ -231,14 +221,7 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
       path: '/delivery',
       builder: (context, state) => const DeliveryBoyScreen(),
     ),
-    GoRoute(
-      path: '/subscription',
-      builder: (context, state) => const SubscriptionScreen(),
-    ),
-    GoRoute(
-      path: '/map',
-      builder: (context, state) => const MapScreen(),
-    ),
-  ],
-);
+    ],
+  );
 });
+

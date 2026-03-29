@@ -4,12 +4,11 @@ class UserModel {
   final String email;
   final String phone;
   final String role; // 'user', 'delivery', 'admin'
-  final double? lat;
-  final double? lng;
   final String? preference;
   final String? locationName;
   final String? userAddress;
   final String? areaName;
+
 
   UserModel({
     required this.id,
@@ -17,13 +16,12 @@ class UserModel {
     required this.email,
     required this.phone,
     required this.role,
-    this.lat,
-    this.lng,
     this.preference,
     this.locationName,
     this.userAddress,
     this.areaName,
   });
+
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
@@ -32,8 +30,8 @@ class UserModel {
       email: json['email'] as String? ?? '',
       phone: json['phone'] as String? ?? '',
       role: json['role'] as String? ?? 'user',
-      lat: (json['lat'] as num?)?.toDouble(),
-      lng: (json['lng'] as num?)?.toDouble() ?? (json['long'] as num?)?.toDouble(),
+      role: json['role'] as String? ?? 'user',
+
       preference: json['preference'] as String?,
       locationName: json['location_name'] as String?,
       userAddress: json['user_address'] as String?,
@@ -47,8 +45,8 @@ class UserModel {
         'email': email,
         'phone': phone,
         'role': role,
-        'lat': lat,
-        'lng': lng,
+        'role': role,
+
         'preference': preference,
         'location_name': locationName,
         'user_address': userAddress,
@@ -64,9 +62,8 @@ class KitchenModel {
   final String description;
   final bool isVeg;
   final bool isNonVeg;
-  final double lat;
-  final double lng;
   final String address;
+
   final double pricePerMeal;
   final bool isApproved;
 
@@ -78,9 +75,8 @@ class KitchenModel {
     required this.description,
     required this.isVeg,
     required this.isNonVeg,
-    required this.lat,
-    required this.lng,
     required this.address,
+
     required this.pricePerMeal,
     this.isApproved = true,
   });
@@ -95,8 +91,8 @@ class KitchenModel {
       description: json['description'] as String? ?? '',
       isVeg: json['is_veg'] as bool? ?? true,
       isNonVeg: json['is_non_veg'] as bool? ?? false,
-      lat: (json['lat'] as num?)?.toDouble() ?? 0.0,
-      lng: (json['lng'] as num?)?.toDouble() ?? (json['long'] as num?)?.toDouble() ?? 0.0,
+      address: json['address'] as String? ?? '',
+
       address: json['address'] as String? ?? '',
       pricePerMeal: (json['price_per_meal'] as num?)?.toDouble() ?? 0.0,
       isApproved: json['is_approved'] as bool? ?? true,
@@ -111,9 +107,8 @@ class KitchenModel {
       'description': description,
       'is_veg': isVeg,
       'is_non_veg': isNonVeg,
-      'lat': lat,
-      'lng': lng,
       'address': address,
+
       'price_per_meal': pricePerMeal,
       'is_approved': isApproved,
     };
@@ -179,13 +174,8 @@ class OrderModel {
   final String userAddress;
   final String paymentMethod; // 'cash', 'online'
   final String paymentStatus; // 'pending', 'paid'
-  final double? trackingLat;
-  final double? trackingLng;
-  final double? userLat;
-  final double? userLng;
-  final double? deliveryLat;
-  final double? deliveryLng;
   final String? areaName;
+
 
 
   final int? adminEta;
@@ -215,13 +205,8 @@ class OrderModel {
     required this.userAddress,
     this.paymentMethod = 'cash',
     this.paymentStatus = 'pending',
-    this.trackingLat,
-    this.trackingLng,
-    this.userLat,
-    this.userLng,
-    this.deliveryLat,
-    this.deliveryLng,
     this.areaName,
+
 
 
     this.adminEta,
@@ -255,13 +240,8 @@ class OrderModel {
       userAddress: (json['user_address'] as String?) ?? '',
       paymentMethod: (json['payment_method'] as String?) ?? 'cash',
       paymentStatus: (json['payment_status'] as String?) ?? 'pending',
-      trackingLat: (json['tracking_lat'] as num?)?.toDouble() ?? (json['lat'] as num?)?.toDouble(),
-      trackingLng: (json['tracking_lng'] as num?)?.toDouble() ?? (json['lng'] as num?)?.toDouble() ?? (json['long'] as num?)?.toDouble(),
-      userLat: (json['user_lat'] as num?)?.toDouble(),
-      userLng: (json['user_lng'] as num?)?.toDouble(),
-      deliveryLat: (json['delivery_lat'] as num?)?.toDouble(),
-      deliveryLng: (json['delivery_lng'] as num?)?.toDouble(),
       areaName: (json['area_name'] as String?),
+
 
       adminEta: json['admin_eta'] as int?,
       customerName: (json['customer_name'] as String?),
@@ -288,13 +268,8 @@ class OrderModel {
       'payment_status': paymentStatus,
     };
     if (deliveryBoyId != null) map['delivery_boy_id'] = deliveryBoyId;
-    if (trackingLat != null) map['tracking_lat'] = trackingLat;
-    if (trackingLng != null) map['tracking_lng'] = trackingLng;
-    if (userLat != null) map['user_lat'] = userLat;
-    if (userLng != null) map['user_lng'] = userLng;
-    if (deliveryLat != null) map['delivery_lat'] = deliveryLat;
-    if (deliveryLng != null) map['delivery_lng'] = deliveryLng;
     if (areaName != null) map['area_name'] = areaName;
+
 
     if (adminEta != null) map['admin_eta'] = adminEta;
     if (customerName != null) map['customer_name'] = customerName;
@@ -316,17 +291,15 @@ class DeliveryModel {
   final String orderId;
   final String deliveryBoyId;
   final String status; // 'accepted', 'picked_up', 'on_the_way', 'delivered'
-  final double? lat;
-  final double? lng;
+
 
   DeliveryModel({
     required this.id,
     required this.orderId,
     required this.deliveryBoyId,
     required this.status,
-    this.lat,
-    this.lng,
   });
+
 
   factory DeliveryModel.fromJson(Map<String, dynamic> json) {
     return DeliveryModel(
@@ -334,9 +307,8 @@ class DeliveryModel {
       orderId: json['order_id'] as String,
       deliveryBoyId: json['delivery_boy_id'] as String,
       status: json['status'] as String? ?? 'accepted',
-      lat: (json['lat'] as num?)?.toDouble(),
-      lng: (json['lng'] as num?)?.toDouble() ?? (json['long'] as num?)?.toDouble(),
     );
+
   }
 
   Map<String, dynamic> toJson() {
@@ -344,9 +316,8 @@ class DeliveryModel {
       'order_id': orderId,
       'delivery_boy_id': deliveryBoyId,
       'status': status,
-      'lat': lat,
-      'lng': lng,
     };
+
     if (id.isNotEmpty) map['id'] = id;
     return map;
   }

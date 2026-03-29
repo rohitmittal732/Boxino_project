@@ -50,14 +50,7 @@ class GradientButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           child: Center(
             child: isLoading
-                ? const SizedBox(
-                    height: 24,
-                    width: 24,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2.5,
-                    ),
-                  )
+                ? const SizedBox(height: 24, width: 24)
                 : Text(
                     label,
                     style: const TextStyle(
@@ -279,10 +272,7 @@ class GoogleSignInButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (isLoading)
-                const SizedBox(
-                  width: 20, height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
+                const SizedBox(width: 20, height: 20)
               else ...[
                 // Google "G" letter icon using Text for reliability
                 Container(

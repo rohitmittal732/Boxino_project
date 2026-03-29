@@ -162,9 +162,8 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen> {
                     description: descController.text,
                     isVeg: isVegVal,
                     isNonVeg: isNonVegVal,
-                    lat: 26.9124,
-                    lng: 75.7873,
                     address: addressController.text,
+
                     pricePerMeal: double.tryParse(priceController.text) ?? 100,
                     isApproved: true,
                   );
@@ -233,7 +232,8 @@ class AdminDashboardTab extends ConsumerWidget {
           ),
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const SizedBox(),
+
       error: (e, s) => Center(child: Text('Error loading dashboard: $e')),
     );
   }
@@ -323,7 +323,8 @@ class _AdminKitchensTabState extends ConsumerState<AdminKitchensTab> {
                 },
               );
             },
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const SizedBox(),
+
             error: (e, s) => Center(child: Text('Error: $e')),
           ),
         ),
@@ -416,7 +417,8 @@ class AdminKitchenCard extends ConsumerWidget {
                       )).toList(),
                     );
                   },
-                  loading: () => const Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()),
+                  loading: () => const SizedBox(),
+
                   error: (e, s) => Text('Error loading menus: $e', style: const TextStyle(color: Colors.red)),
                 ),
               ],
@@ -505,9 +507,8 @@ class AdminKitchenCard extends ConsumerWidget {
                     description: descController.text,
                     isVeg: isVegVal,
                     isNonVeg: isNonVegVal,
-                    lat: kitchen.lat,
-                    lng: kitchen.lng,
                     address: addressController.text,
+
                     pricePerMeal: double.tryParse(priceController.text) ?? kitchen.pricePerMeal,
                     isApproved: kitchen.isApproved,
                   );
@@ -807,7 +808,8 @@ class _AdminOrdersTabState extends ConsumerState<AdminOrdersTab> {
         },
       );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const SizedBox(),
+
       error: (e, s) => Center(child: Text('Error: $e')),
     ),
   ),
@@ -933,7 +935,8 @@ class _DeliveryBoyListTileState extends ConsumerState<_DeliveryBoyListTile> {
       title: Text(widget.db.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
       subtitle: Text('Status: Available\n${widget.db.email}', style: const TextStyle(fontSize: 13)),
       trailing: _isLoading
-          ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryOrange))
+          ? const SizedBox(width: 24, height: 24)
+
           : _isSuccess
               ? const Icon(Icons.check_circle, color: Colors.green, size: 28)
               : ElevatedButton(
@@ -1007,7 +1010,8 @@ class AdminUsersTab extends ConsumerWidget {
           );
         },
       ),
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const SizedBox(),
+
       error: (e, s) => Center(child: Text('Error loading users: $e')),
     );
   }
@@ -1076,7 +1080,8 @@ class AdminProfileTab extends ConsumerWidget {
           ),
         ),
       ),
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const SizedBox(),
+
       error: (e, s) => Center(child: Text('Error loading profile: $e')),
     );
   }

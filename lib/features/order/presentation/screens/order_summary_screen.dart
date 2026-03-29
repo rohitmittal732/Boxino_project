@@ -164,7 +164,7 @@ class _OrderSummaryScreenState extends ConsumerState<OrderSummaryScreen> {
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           ),
                           child: _isLoading 
-                              ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+                              ? const SizedBox(width: 24, height: 24)
                               : const Text('Place Order (Cash)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                         ),
                       ),

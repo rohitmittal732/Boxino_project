@@ -1,11 +1,8 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../domain/models/app_models.dart';
-import 'package:geocoding/geocoding.dart';
 import 'dart:async';
 import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:latlong2/latlong.dart';
-import 'package:geolocator/geolocator.dart';
+
 
 class SupabaseService {
   SupabaseClient get _client => Supabase.instance.client;
@@ -117,16 +114,14 @@ class SupabaseService {
     String? phone,
     String? address,
     String? areaName,
-    double? lat,
-    double? lng,
   }) async {
     final Map<String, dynamic> updates = {};
     if (name != null) updates['name'] = name;
     if (phone != null) updates['phone'] = phone;
     if (address != null) updates['user_address'] = address;
     if (areaName != null) updates['area_name'] = areaName;
-    if (lat != null) updates['lat'] = lat;
-    if (lng != null) updates['lng'] = lng;
+    if (areaName != null) updates['area_name'] = areaName;
+
 
     if (updates.isEmpty) return;
     
@@ -222,32 +217,12 @@ class SupabaseService {
     final orderData = order.toJson();
     orderData['user_id'] = currentUser.id; // 🔥 Force correct user_id
     
-    // Denormalize user metadata for UI performance
-    final userProfile = await getUserProfile(currentUser.id);
-    
-    // 🔥 PRO FIX: Use current GPS if profile coords are missing
-    double? finalLat = userProfile?.lat;
-    double? finalLng = userProfile?.lng;
-    
-    if (finalLat == null) {
-      try {
-        final pos = await Geolocator.getCurrentPosition();
-        finalLat = pos.latitude;
-        finalLng = pos.longitude;
-      } catch (e) {
-        print('DEBUG: Location fetch failed during order: $e');
-      }
-    }
-
-    // Assign customer info and coordinates to the order record (denormalized for speed)
-    orderData['customer_name'] = userProfile?.name ?? 'User';
-    orderData['customer_phone'] = userProfile?.phone ?? '';
-    orderData['user_lat'] = finalLat;
-    orderData['user_lng'] = finalLng;
-
-
+    // Assign customer info to the order record (denormalized for speed)
+    orderData['customer_name'] = currentUser.userMetadata?['name'] ?? 'User';
+    orderData['customer_phone'] = currentUser.userMetadata?['phone'] ?? '';
 
     int attempts = 0;
+
     while (attempts < 3) {
       try {
         final response = await _client.from('orders').insert(orderData).select('id').single();
@@ -271,37 +246,18 @@ class SupabaseService {
 
   Future<void> _autoAssignOrder(String orderId) async {
     try {
-      // Fetch all delivery boys
       final response = await _client.from('users').select().eq('role', 'delivery');
       final deliveryBoys = (response as List).map((u) => UserModel.fromJson(u)).toList();
       if (deliveryBoys.isEmpty) return;
 
-      // Calculate loads
-      final activeDeliveries = await _client.from('deliveries').select('delivery_boy_id').neq('status', 'delivered');
-      final Map<String, int> loadMap = { for (var d in deliveryBoys) d.id: 0 };
-      for (var d in activeDeliveries as List) {
-        final boyId = d['delivery_boy_id'] as String;
-        if (loadMap.containsKey(boyId)) loadMap[boyId] = loadMap[boyId]! + 1;
-      }
-
-      // Find the least loaded delivery boy
-      String? selectedBoyId;
-      int minLoad = 999999;
-      for (var boy in deliveryBoys) {
-        if (loadMap[boy.id]! < minLoad) {
-          minLoad = loadMap[boy.id]!;
-          selectedBoyId = boy.id;
-        }
-      }
-
-      if (selectedBoyId != null) {
-        print('LOG: Auto-assigning order $orderId to delivery boy $selectedBoyId with load $minLoad');
-        await assignDelivery(orderId, selectedBoyId);
-      }
+      // Simple round-robin or first available for Lite Mode
+      final selectedBoy = deliveryBoys.first;
+      await assignDelivery(orderId, selectedBoy.id);
     } catch (e) {
       print('ERROR: Auto-assignment failed for order $orderId: $e');
     }
   }
+
 
   Future<void> updateOrderStatus(String orderId, String status) async {
     await updateDeliveryStatus(orderId, status);
@@ -310,32 +266,6 @@ class SupabaseService {
 
   Future<void> updateAdminEta(String orderId, int eta) async {
     await _client.from('orders').update({'admin_eta': eta}).eq('id', orderId);
-  }
-
-  Future<Map<String, dynamic>> getRouteInfo(LatLng start, LatLng end) async {
-    // 🔥 OSRM expects [longitude, latitude]
-    final url = 'https://router.project-osrm.org/route/v1/driving/${start.longitude},${start.latitude};${end.longitude},${end.latitude}?overview=full&geometries=geojson';
-
-    try {
-      final response = await http.get(Uri.parse(url));
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final route = data['routes'][0];
-        final List<dynamic> coordinates = route['geometry']['coordinates'];
-        final duration = (route['duration'] as num).toDouble(); // Seconds
-        final distance = (route['distance'] as num).toDouble(); // Meters
-        final points = coordinates.map((c) => LatLng(c[1].toDouble(), c[0].toDouble())).toList();
-        return {
-          'points': points, 
-          'duration': duration, 
-          'distance': distance,
-          'durationMinutes': (duration / 60).round(),
-        };
-      }
-    } catch (e) {
-      print('ERROR: SupabaseService: OSRM route error: $e');
-    }
-    return {'points': <LatLng>[], 'duration': 0, 'distance': 0, 'durationMinutes': 0};
   }
 
 
@@ -362,9 +292,6 @@ class SupabaseService {
   // DELIVERIES
   Future<void> assignDelivery(String orderId, String deliveryBoyId) async {
     print('LOG: SupabaseService: Assigning order $orderId to $deliveryBoyId');
-    
-    // 🔥 STEP 1: Update orders table
-    // Denormalize rider metadata for UI performance
     final riderProfile = await getUserProfile(deliveryBoyId);
     final updates = {
       'status': 'accepted',
@@ -374,25 +301,9 @@ class SupabaseService {
       updates['rider_name'] = riderProfile.name;
       updates['rider_phone'] = riderProfile.phone;
     }
-
     await _client.from('orders').update(updates).eq('id', orderId);
-
-    // 🔥 STEP 2: Upsert into deliveries table
-    final existing = await _client.from('deliveries').select().eq('order_id', orderId).maybeSingle();
-    
-    if (existing == null) {
-      await _client.from('deliveries').insert({
-        'order_id': orderId,
-        'delivery_boy_id': deliveryBoyId,
-        'status': 'accepted',
-      });
-    } else {
-      await _client.from('deliveries').update({
-        'delivery_boy_id': deliveryBoyId,
-        'status': 'accepted',
-      }).eq('order_id', orderId);
-    }
   }
+
 
   Future<void> acceptOrder(String orderId, String deliveryBoyId) async {
     await assignDelivery(orderId, deliveryBoyId);
@@ -401,43 +312,19 @@ class SupabaseService {
   Future<void> updateDeliveryStatus(String orderId, String status) async {
     print('LOG: SupabaseService: Updating order $orderId to $status');
     await _client.from('orders').update({'status': status}).eq('id', orderId);
-    await _client.from('deliveries').update({'status': status}).eq('order_id', orderId);
   }
+
 
   Future<void> updatePaymentStatus(String orderId, String paymentStatus) async {
     await _client.from('orders').update({'payment_status': paymentStatus}).eq('id', orderId);
   }
 
-  Future<void> updateLiveLocation(String orderId, double lat, double lng) async {
-    // 🔥 PRO SCALABILITY: Sync to both tables using new explicit column names
-    await Future.wait([
-      _client.from('orders').update({
-        'tracking_lat': lat, 
-        'tracking_lng': lng,
-        'delivery_lat': lat,
-        'delivery_lng': lng,
-      }).eq('id', orderId),
-      _client.from('deliveries').update({'lat': lat, 'lng': lng}).eq('order_id', orderId),
-    ]);
-  }
 
 
-  Future<void> updateUserLocation(String userId, double lat, double lng) async {
-    await _client.from('users').update({'lat': lat, 'lng': lng}).eq('id', userId);
-  }
 
-  Future<String?> getAddressFromLatLng(double lat, double lng) async {
-    try {
-      List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
-      if (placemarks.isNotEmpty) {
-        Placemark place = placemarks[0];
-        return "${place.name}, ${place.subLocality}, ${place.locality}";
-      }
-    } catch (e) {
-      print('DEBUG: Geocoding error: $e');
-    }
-    return null;
-  }
+
+
+
 
   // STREAMS
   Stream<List<Map<String, dynamic>>> getAdminOrdersStream() {
@@ -472,7 +359,6 @@ class SupabaseService {
             }).toList());
   }
 
-  Stream<List<Map<String, dynamic>>> getDeliveryBoyLocationStream(String deliveryId) {
-    return _client.from('users').stream(primaryKey: ['id']).eq('id', deliveryId);
-  }
+
+
 }

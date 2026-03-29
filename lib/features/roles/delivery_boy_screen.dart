@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -9,9 +8,7 @@ import 'package:boxino/core/providers/app_providers.dart';
 import 'package:boxino/core/providers/auth_notifier.dart';
 import 'package:boxino/domain/models/app_models.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:boxino/features/roles/widgets/payout_request_sheet.dart';
-import 'package:boxino/data/services/location_service.dart';
 
 class DeliveryBoyScreen extends ConsumerStatefulWidget {
   const DeliveryBoyScreen({super.key});
@@ -21,78 +18,19 @@ class DeliveryBoyScreen extends ConsumerStatefulWidget {
 }
 
 class _DeliveryBoyScreenState extends ConsumerState<DeliveryBoyScreen> {
-
   @override
   void dispose() {
-    LocationService.stopTracking();
     super.dispose();
   }
 
   void _toggleOnline(bool val) {
     ref.read(isOnlineProvider.notifier).state = val;
-    if (val) {
-      _startLocationUpdates();
-    } else {
-      LocationService.stopTracking();
-    }
   }
-
-  void _startLocationUpdates() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enable location services')));
-      return;
-    }
-
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) return;
-    }
-
-    // Use optimized LocationService
-    LocationService.startTracking(
-      timeInterval: 10, // 10 seconds interval for scalability
-      distanceFilter: 15, // 15 meters filter
-      onLocationChanged: (position) async {
-        final deliveries = ref.read(deliveryOrdersProvider).valueOrNull ?? [];
-        final activeDeliveries = deliveries.where((d) => d.status == 'out_for_delivery').toList();
-        
-        final userId = ref.read(currentUserProvider);
-        if (userId == null) return;
-
-        try {
-          final service = ref.read(supabaseServiceProvider);
-          final List<Future> futures = [];
-          
-          // Update rider global position
-          // Using a simple check to avoid too many geocoding calls
-          futures.add(service.updateUserProfile(
-            userId: userId,
-            lat: position.latitude, 
-            lng: position.longitude,
-          ));
-
-          // Update live tracking for active orders
-          for (var order in activeDeliveries) {
-            futures.add(service.updateLiveLocation(order.id, position.latitude, position.longitude));
-          }
-
-          await Future.wait(futures);
-          print('DEBUG: Throttled GPS Update: ${position.latitude}, ${position.longitude}');
-        } catch (e) {
-          print('DEBUG: GPS Throttled Update Fail: $e');
-        }
-      },
-    );
-  }
-
 
   @override
   Widget build(BuildContext context) {
     final deliveriesAsync = ref.watch(deliveryOrdersProvider);
     final isOnline = ref.watch(isOnlineProvider);
-    final userId = ref.watch(currentUserProvider);
 
     return DefaultTabController(
       length: 4,
@@ -131,19 +69,12 @@ class _DeliveryBoyScreenState extends ConsumerState<DeliveryBoyScreen> {
         ),
         body: TabBarView(
           children: [
-            // Tab 1: Active Tasks (picked_up, out_for_delivery)
             _buildOrderList(deliveriesAsync, ['picked_up', 'out_for_delivery'], 'No active tasks'),
-            
-            // Tab 2: New Orders (accepted)
             _buildOrderList(deliveriesAsync, ['accepted'], 'No new assignments', 
               isNewTab: true, 
               hasActiveTask: (deliveriesAsync.valueOrNull?.any((o) => ['picked_up', 'out_for_delivery'].contains(o.status)) ?? false)
             ),
-            
-            // Tab 3: Earnings
             const DeliveryEarningsTab(),
-
-            // Tab 4: Profile
             const DeliveryProfileTab(),
           ],
         ),
@@ -166,7 +97,7 @@ class _DeliveryBoyScreenState extends ConsumerState<DeliveryBoyScreen> {
           ),
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const SizedBox(), // Removed loader
       error: (e, s) => Center(child: Text('Error: $e')),
     );
   }
@@ -176,13 +107,6 @@ class DeliveryCard extends ConsumerWidget {
   final OrderModel order;
   final bool isLocked;
   const DeliveryCard({super.key, required this.order, this.isLocked = false});
-
-  Future<void> _launchMaps(double lat, double lng) async {
-    final url = 'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng';
-    if (await canLaunchUrl(Uri.parse(url))) {
-      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-    }
-  }
 
   Future<void> _makeCall(String? phone) async {
     if (phone == null || phone.isEmpty) return;
@@ -218,7 +142,6 @@ class DeliveryCard extends ConsumerWidget {
               ),
               const Divider(height: 24),
               
-              // Customer Info (Now using denormalized metadata)
               Row(
                 children: [
                   const CircleAvatar(backgroundColor: AppTheme.primaryOrange, child: Icon(Icons.person, color: Colors.white)),
@@ -228,7 +151,8 @@ class DeliveryCard extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(order.customerName ?? 'Unknown Customer', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                        Text(order.userAddress, style: const TextStyle(color: Colors.grey, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        const SizedBox(height: 4),
+                        Text('Address: ${order.userAddress}', style: const TextStyle(color: Colors.black87, fontSize: 14)),
                       ],
                     ),
                   ),
@@ -236,15 +160,10 @@ class DeliveryCard extends ConsumerWidget {
                     onPressed: () => _makeCall(order.customerPhone),
                     icon: const Icon(Icons.call, color: Colors.green),
                   ),
-                  IconButton(
-                    onPressed: order.userLat != null ? () => _launchMaps(order.userLat!, order.userLng!) : null,
-                    icon: const Icon(Icons.directions, color: Colors.blue),
-                  ),
                 ],
               ),
               const SizedBox(height: 16),
               
-              // Workflow Buttons (Production Level Logic)
               if (!isOnline)
                 const Center(child: Text('Go Online to action orders', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)))
               else if (isLocked)
@@ -263,7 +182,6 @@ class DeliveryCard extends ConsumerWidget {
     Color color = AppTheme.primaryOrange;
     String nextStatus = '';
 
-    // Logic based on status flow: accepted -> picked_up -> out_for_delivery -> delivered
     switch (order.status) {
       case 'accepted':
         label = 'PICK UP ORDER';
@@ -359,7 +277,7 @@ class DeliveryProfileTab extends ConsumerWidget {
             title: const Text('Logout', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
             onTap: () async {
               await ref.read(authNotifierProvider.notifier).signOut();
-              context.go('/login');
+              if (context.mounted) context.go('/login');
             },
           ),
         ],
@@ -377,12 +295,11 @@ class DeliveryEarningsTab extends ConsumerWidget {
     if (userId == null) return const SizedBox();
 
     return FutureBuilder<List<dynamic>>(
-      // Fetch delivered AND paid OR delivered AND cash
       future: Supabase.instance.client.from('orders').select().eq('delivery_boy_id', userId).eq('status', 'delivered'),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        if (!snapshot.hasData) return const SizedBox(); // Removed loader
         
-        final orders = snapshot.data!.map((o) => OrderModel.fromJson(o as Map<String, dynamic>)).toList();
+        final orders = (snapshot.data as List).map((o) => OrderModel.fromJson(o as Map<String, dynamic>)).toList();
         final totalEarnings = orders.fold(0.0, (sum, o) => sum + o.riderEarning);
 
         return CustomScrollView(
@@ -393,7 +310,6 @@ class DeliveryEarningsTab extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Stats Card
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(24),
@@ -429,10 +345,7 @@ class DeliveryEarningsTab extends ConsumerWidget {
                         ],
                       ),
                     ),
-
                     const SizedBox(height: 32),
-                    
-                    // Withdrawal Button
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
@@ -454,7 +367,6 @@ class DeliveryEarningsTab extends ConsumerWidget {
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 40),
                     const Text('Recent Deliveries', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
@@ -462,7 +374,6 @@ class DeliveryEarningsTab extends ConsumerWidget {
                 ),
               ),
             ),
-            
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               sliver: SliverList(

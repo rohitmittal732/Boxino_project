@@ -47,7 +47,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
     if (!mounted) return;
     if (success) {
       _showSnack('Account created successfully! 🎉', isSuccess: true);
-      context.go('/login');
+      if (context.mounted) context.go('/home');
     } else {
       final error = ref.read(authNotifierProvider).errorMessage ?? 'Signup failed.';
       _showSnack(error, isSuccess: false);

@@ -1,12 +1,5 @@
-import 'dart:async';
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:boxino/core/theme/app_theme.dart';
-import 'package:boxino/core/providers/app_providers.dart';
-import 'package:boxino/domain/models/app_models.dart';
 
-import 'package:geolocator/geolocator.dart';
+
 
 final navIndexProvider = StateProvider<int>((ref) => 0);
 
@@ -26,18 +19,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _requestLocationPermission();
   }
 
-  Future<void> _requestLocationPermission() async {
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-        return;
-      }
-    }
-  }
+
+
+
 
 
   void _onSearchChanged(String query) {
@@ -125,7 +111,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ],
             );
           },
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const SizedBox(),
           error: (error, stack) => Center(child: Text('Error: $error')),
         ),
       ),
@@ -136,19 +122,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           switch (index) {
             case 0: break; // Already on home
             case 1: context.push('/history'); break;
-            case 2: context.push('/plans'); break;
-            case 3: context.push('/profile'); break;
+            case 2: context.push('/profile'); break;
           }
         },
+
         type: BottomNavigationBarType.fixed,
         selectedItemColor: AppTheme.primaryOrange,
         unselectedItemColor: Colors.grey,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.receipt_long), label: 'Orders'),
-          BottomNavigationBarItem(icon: Icon(Icons.calendar_month), label: 'Plans'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
+
       ),
     );
   }

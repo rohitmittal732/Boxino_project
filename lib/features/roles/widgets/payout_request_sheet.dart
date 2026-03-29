@@ -123,7 +123,7 @@ class _PayoutRequestSheetState extends State<PayoutRequestSheet> {
                 elevation: 0,
               ),
               child: _isProcessing 
-                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                ? const SizedBox(height: 20, width: 20)
                 : const Text('CONFIRM WITHDRAWAL', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
             ),
           ),

@@ -216,7 +216,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
                 child: _isSaving
-                    ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+                    ? const SizedBox(height: 22, width: 22)
                     : const Text('Save & Continue', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ),
