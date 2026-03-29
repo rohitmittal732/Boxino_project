@@ -6,7 +6,10 @@ import 'package:boxino/core/theme/app_theme.dart';
 import 'package:boxino/core/providers/app_providers.dart';
 import 'package:boxino/domain/models/app_models.dart';
 
+import 'package:geolocator/geolocator.dart';
+
 final navIndexProvider = StateProvider<int>((ref) => 0);
+
 final selectedCategoryProvider = StateProvider<String>((ref) => 'All');
 final searchQueryProvider = StateProvider<String>((ref) => '');
 
@@ -19,6 +22,23 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _requestLocationPermission();
+  }
+
+  Future<void> _requestLocationPermission() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+        return;
+      }
+    }
+  }
+
 
   void _onSearchChanged(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
@@ -215,12 +235,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-class KitchenCard extends StatelessWidget {
+class KitchenCard extends ConsumerWidget {
   final KitchenModel kitchen;
   const KitchenCard({super.key, required this.kitchen});
 
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final role = ref.watch(userRoleProvider).valueOrNull ?? 'user';
+    final isRider = role == 'delivery';
+
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -265,15 +290,19 @@ class KitchenCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text('₹${kitchen.pricePerMeal.toStringAsFixed(0)} / meal', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.primaryGreen)),
-                    ElevatedButton(
-                      onPressed: () => context.push('/kitchen-detail', extra: kitchen),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryOrange,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    if (!isRider)
+                      ElevatedButton(
+                        onPressed: () => context.push('/kitchen-detail', extra: kitchen),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryOrange,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('View Menu'),
                       ),
-                      child: const Text('View Menu'),
-                    ),
+                    if (isRider)
+                      const Text('View Only', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+
                   ],
                 ),
               ],

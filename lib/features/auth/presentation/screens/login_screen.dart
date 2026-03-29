@@ -36,8 +36,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
     if (!mounted) return;
     if (success) {
-      if (mounted) context.go('/');
+      if (mounted) {
+        // 🔥 IMPROVEMENT: Role-based redirection
+        final profile = await ref.read(userProfileProvider.future);
+        final role = profile?.role ?? 'user';
+        
+        if (role == 'delivery') {
+          context.go('/delivery');
+        } else if (role == 'admin') {
+
+          context.go('/admin');
+        } else {
+          context.go('/');
+        }
+      }
     } else {
+
       final state = ref.read(authNotifierProvider);
       final error = state.errorMessage ?? 'Login failed.';
       _showSnack(error, isSuccess: false);

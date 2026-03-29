@@ -202,12 +202,28 @@ class SupabaseService {
     
     // Denormalize user metadata for UI performance
     final userProfile = await getUserProfile(currentUser.id);
+    
+    // 🔥 PRO FIX: Use current GPS if profile coords are missing
+    double? finalLat = userProfile?.lat;
+    double? finalLng = userProfile?.lng;
+    
+    if (finalLat == null) {
+      try {
+        final pos = await Geolocator.getCurrentPosition();
+        finalLat = pos.latitude;
+        finalLng = pos.longitude;
+      } catch (e) {
+        print('DEBUG: Location fetch failed during order: $e');
+      }
+    }
+
     if (userProfile != null) {
       orderData['customer_name'] = userProfile.name;
       orderData['customer_phone'] = userProfile.phone;
-      orderData['user_lat'] = userProfile.lat;
-      orderData['user_lng'] = userProfile.lng;
+      orderData['user_lat'] = finalLat;
+      orderData['user_lng'] = finalLng;
     }
+
 
     int attempts = 0;
     while (attempts < 3) {

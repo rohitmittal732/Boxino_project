@@ -1,9 +1,12 @@
 -- BOXINO PRODUCTION FIX V2 (RUN THIS AFTER PREVIOUS MIGRATIONS)
 
 -- 1. ADD ADMIN ETA COLUMN
+
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS admin_eta integer DEFAULT 30;
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS delivery_lat double precision;
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS delivery_lng double precision;
+ALTER TABLE public.orders ALTER COLUMN status SET DEFAULT 'pending';
+
 
 
 -- 2. STATUS CONSTRAINT FIX (FOR CANCEL WORK & PREPARING STATE)
@@ -44,4 +47,16 @@ CREATE INDEX IF NOT EXISTS idx_orders_user_id ON public.orders(user_id);
 CREATE INDEX IF NOT EXISTS idx_orders_delivery_boy_id ON public.orders(delivery_boy_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON public.orders(status);
 CREATE INDEX IF NOT EXISTS idx_deliveries_order_id ON public.deliveries(order_id);
+
+-- 6. RLS FOR CANCELLATION (CANCEL ONLY PENDING)
+DO $$ 
+BEGIN
+    DROP POLICY IF EXISTS "cancel only pending" ON public.orders;
+    CREATE POLICY "cancel only pending" ON public.orders
+    FOR UPDATE 
+    USING (auth.uid() = user_id AND status = 'pending');
+EXCEPTION WHEN OTHERS THEN 
+    NULL;
+END $$;
+
 

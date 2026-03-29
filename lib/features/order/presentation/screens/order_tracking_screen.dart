@@ -12,8 +12,8 @@ import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:async';
 
-// Provider to fetch route points from OSRM
-final routePointsProvider = FutureProvider.family<List<LatLng>, (LatLng, LatLng)>((ref, coords) async {
+// Provider to fetch route data from OSRM (points + duration)
+final routeDataProvider = FutureProvider.family<Map<String, dynamic>, (LatLng, LatLng)>((ref, coords) async {
   final start = coords.$1;
   final end = coords.$2;
   
@@ -23,14 +23,21 @@ final routePointsProvider = FutureProvider.family<List<LatLng>, (LatLng, LatLng)
     final response = await http.get(Uri.parse(url));
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
-      final List<dynamic> coordinates = data['routes'][0]['geometry']['coordinates'];
-      return coordinates.map((c) => LatLng(c[1].toDouble(), c[0].toDouble())).toList();
+      final route = data['routes'][0];
+      final List<dynamic> coordinates = route['geometry']['coordinates'];
+      final duration = (route['duration'] as num).toDouble();
+      
+      return {
+        'points': coordinates.map((c) => LatLng(c[1].toDouble(), c[0].toDouble())).toList(),
+        'durationMinutes': (duration / 60).round(),
+      };
     }
   } catch (e) {
     print('Error fetching route: $e');
   }
-  return [];
+  return {'points': <LatLng>[], 'durationMinutes': 0};
 });
+
 
 class OrderTrackingScreen extends ConsumerStatefulWidget {
   final String orderId;
@@ -92,10 +99,11 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
               ? LatLng(order.userLat!, order.userLng!) 
               : (customerAsync.valueOrNull?.lat != null ? LatLng(customerAsync.valueOrNull!.lat!, customerAsync.valueOrNull!.lng!) : null);
 
-          // 4. Fetch Route
-          AsyncValue<List<LatLng>>? routeAsync;
+          // 4. Fetch Route Data (Points + Duration)
+          AsyncValue<Map<String, dynamic>>? routeAsync;
           if (riderPos != null && userPos != null) {
-            routeAsync = ref.watch(routePointsProvider((riderPos, userPos)));
+            routeAsync = ref.watch(routeDataProvider((riderPos, userPos)));
+
             
             // Fit bounds once data is available
             if (!_hasFitBounds) {
@@ -141,14 +149,35 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                               Text(
                                 order.adminEta != null 
                                   ? 'ETA: ${order.adminEta} mins' 
-                                  : 'ETA: 30 mins', // Fallback
+                                  : (routeAsync?.valueOrNull?['durationMinutes'] != null 
+                                      ? 'ETA: ${routeAsync!.valueOrNull!['durationMinutes']} mins' 
+                                      : 'Calculating...'),
                                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryOrange)
                               ),
                             ],
                           ),
-
                       ],
                     ),
+                    if (order.status == 'pending')
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton(
+                            onPressed: () async {
+                              try {
+                                await ref.read(supabaseServiceProvider).updateOrderStatus(order.id, 'cancelled');
+                                if (mounted) context.pop();
+                              } catch (e) {
+                                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to cancel: $e')));
+                              }
+                            },
+                            style: OutlinedButton.styleFrom(foregroundColor: AppTheme.errorRed, side: const BorderSide(color: AppTheme.errorRed)),
+                            child: const Text('CANCEL ORDER'),
+                          ),
+                        ),
+                      ),
+
 
                     const SizedBox(height: 16),
                     ClipRRect(
@@ -181,10 +210,10 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                         ),
                         if (routeAsync != null)
                           routeAsync.when(
-                            data: (points) => PolylineLayer(
+                            data: (routeData) => PolylineLayer(
                               polylines: [
                                 Polyline(
-                                  points: points,
+                                  points: routeData['points'] as List<LatLng>,
                                   color: Colors.blue.withOpacity(0.7),
                                   strokeWidth: 5,
                                 ),
@@ -193,6 +222,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                             loading: () => const SizedBox(),
                             error: (e, s) => const SizedBox(),
                           ),
+
                         MarkerLayer(
                           markers: [
                             if (riderPos != null)
