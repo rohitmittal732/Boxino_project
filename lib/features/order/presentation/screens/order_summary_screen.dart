@@ -48,7 +48,7 @@ class _OrderSummaryScreenState extends ConsumerState<OrderSummaryScreen> {
         status: 'pending',
         createdAt: DateTime.now(),
         // 🔥 V5 MASTER: Use real user address from profile
-        userAddress: userProfile?.address ?? 'Jaipur, Rajasthan',
+        userAddress: userProfile?.userAddress ?? 'Jaipur, Rajasthan',
         paymentMethod: 'cash',
         paymentStatus: 'pending',
       );
