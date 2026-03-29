@@ -120,7 +120,6 @@ class SupabaseService {
     if (phone != null) updates['phone'] = phone;
     if (address != null) updates['user_address'] = address;
     if (areaName != null) updates['area_name'] = areaName;
-    if (areaName != null) updates['area_name'] = areaName;
 
 
     if (updates.isEmpty) return;

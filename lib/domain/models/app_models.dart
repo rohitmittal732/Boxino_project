@@ -30,7 +30,6 @@ class UserModel {
       email: json['email'] as String? ?? '',
       phone: json['phone'] as String? ?? '',
       role: json['role'] as String? ?? 'user',
-      role: json['role'] as String? ?? 'user',
 
       preference: json['preference'] as String?,
       locationName: json['location_name'] as String?,
@@ -44,7 +43,6 @@ class UserModel {
         'name': name,
         'email': email,
         'phone': phone,
-        'role': role,
         'role': role,
 
         'preference': preference,
@@ -91,8 +89,6 @@ class KitchenModel {
       description: json['description'] as String? ?? '',
       isVeg: json['is_veg'] as bool? ?? true,
       isNonVeg: json['is_non_veg'] as bool? ?? false,
-      address: json['address'] as String? ?? '',
-
       address: json['address'] as String? ?? '',
       pricePerMeal: (json['price_per_meal'] as num?)?.toDouble() ?? 0.0,
       isApproved: json['is_approved'] as bool? ?? true,

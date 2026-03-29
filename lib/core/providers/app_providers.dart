@@ -147,12 +147,7 @@ final liveOrderStreamProvider = StreamProvider.family<List<Map<String, dynamic>>
   return service.getLiveOrderStream(orderId);
 });
 
-final deliveryLocationStreamProvider = StreamProvider.family<List<Map<String, dynamic>>, String>((ref, userId) {
-  final service = ref.read(supabaseServiceProvider);
-  return service.getDeliveryBoyLocationStream(userId);
-});
-
-// 🔥 PRO FINAL: Consolidate tracking into ONE provider to avoid UI flickers and multiple stream overhead
+// Simplified Tracking for Lite Mode (Status only)
 final combinedTrackingProvider = StreamProvider.family<Map<String, dynamic>, String>((ref, orderId) async* {
   final service = ref.read(supabaseServiceProvider);
   
