@@ -7,11 +7,6 @@ import 'package:boxino/core/providers/app_providers.dart';
 import 'package:boxino/domain/models/app_models.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
-final navIndexProvider = StateProvider<int>((ref) => 0);
-
-final selectedCategoryProvider = StateProvider<String>((ref) => 'All');
-final searchQueryProvider = StateProvider<String>((ref) => '');
-
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -48,24 +43,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final selectedIdx = ref.watch(navIndexProvider);
-    final kitchensAsync = ref.watch(approvedKitchensProvider);
+    final filteredKitchensAsync = ref.watch(filteredKitchensProvider);
     final selectedCategory = ref.watch(selectedCategoryProvider);
-    final searchQuery = ref.watch(searchQueryProvider).toLowerCase();
 
     return Scaffold(
       backgroundColor: AppTheme.background,
       body: SafeArea(
-        child: kitchensAsync.when(
-          data: (kitchens) {
-            final filteredKitchens = kitchens.where((k) {
-              final matchesCategory = selectedCategory == 'All' || 
-                                     (selectedCategory == 'Veg' && k.isVeg) || 
-                                     (selectedCategory == 'Non-Veg' && k.isNonVeg);
-              final matchesSearch = k.name.toLowerCase().contains(searchQuery);
-              return matchesCategory && matchesSearch;
-            }).toList();
-
-
+        child: filteredKitchensAsync.when(
+          data: (filteredKitchens) {
             return CustomScrollView(
               slivers: [
                 SliverToBoxAdapter(
@@ -75,14 +60,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildTopBar(context),
-
                         const SizedBox(height: 24),
                         _buildSearchBar(),
                         const SizedBox(height: 24),
-
-
                         _buildFilterChips(selectedCategory),
-
                         const SizedBox(height: 32),
                         const Text(
                           'Nearby Home Kitchens',
@@ -254,7 +235,9 @@ class KitchenCard extends ConsumerWidget {
               height: 150,
               width: double.infinity,
               fit: BoxFit.cover,
-              placeholder: (context, url) => Container(color: Colors.grey.shade100, height: 150),
+              memCacheHeight: 300, // Optimize memory
+              memCacheWidth: 600,
+              placeholder: (context, url) => Container(color: Colors.grey.shade100, height: 150, width: double.infinity),
               errorWidget: (context, url, error) => Image.network(
                 'https://www.eurokidsindia.com/blog/wp-content/uploads/2023/03/best-healthy-food-for-kids-1.png',
                 height: 150,

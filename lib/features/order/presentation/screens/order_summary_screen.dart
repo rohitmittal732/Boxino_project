@@ -37,6 +37,8 @@ class _OrderSummaryScreenState extends ConsumerState<OrderSummaryScreen> {
         'price': e.menu.price,
       }).toList();
 
+      final userProfile = ref.read(userProfileProvider).valueOrNull;
+      
       final order = OrderModel(
         id: '', 
         userId: userId,
@@ -45,8 +47,8 @@ class _OrderSummaryScreenState extends ConsumerState<OrderSummaryScreen> {
         totalPrice: cartNotifier.total,
         status: 'pending',
         createdAt: DateTime.now(),
-        // TODO: Map picking address
-        userAddress: 'Jaipur, Rajasthan',
+        // 🔥 V5 MASTER: Use real user address from profile
+        userAddress: userProfile?.address ?? 'Jaipur, Rajasthan',
         paymentMethod: 'cash',
         paymentStatus: 'pending',
       );
@@ -164,7 +166,11 @@ class _OrderSummaryScreenState extends ConsumerState<OrderSummaryScreen> {
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           ),
                           child: _isLoading 
-                              ? const SizedBox(width: 24, height: 24)
+                              ? const SizedBox(
+                                  width: 24, 
+                                  height: 24, 
+                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3)
+                                )
                               : const Text('Place Order (Cash)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                         ),
                       ),

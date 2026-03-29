@@ -238,7 +238,7 @@ class OrderModel {
       areaName: (json['area_name'] as String?),
 
 
-      adminEta: json['admin_eta'] as int?,
+      adminEta: (json['admin_eta'] as num?)?.toInt(),
       customerName: (json['customer_name'] as String?),
       customerPhone: (json['customer_phone'] as String?),
       riderName: (json['rider_name'] as String?),

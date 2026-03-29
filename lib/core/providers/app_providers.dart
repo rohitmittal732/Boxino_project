@@ -14,38 +14,19 @@ final supabaseServiceProvider = Provider<SupabaseService>((ref) {
 final otpEmailProvider = StateProvider<String>((ref) => '');
 
 // ─── Auth State Stream (reactive) ─────────────────────────────
-/// Streams auth state changes: logged-in, logged-out, token refresh, etc.
 final authStateProvider = StreamProvider<AuthState>((ref) {
-  try {
-    return Supabase.instance.client.auth.onAuthStateChange;
-  } catch (e) {
-    print('ERROR: authStateProvider: Failed to get auth state stream: $e');
-    return const Stream.empty();
-  }
+  return Supabase.instance.client.auth.onAuthStateChange;
 });
 
 // ─── Current User ID ──────────────────────────────────────────
 final currentUserProvider = Provider<String?>((ref) {
-  // Watch auth state to react to login/logout
   ref.watch(authStateProvider);
-  try {
-    final user = Supabase.instance.client.auth.currentUser;
-    print('DEBUG: currentUserProvider: ${user?.id} (${user?.email})');
-    return user?.id;
-  } catch (e) {
-    print('ERROR: currentUserProvider: $e');
-    return null;
-  }
+  return Supabase.instance.client.auth.currentUser?.id;
 });
 
 // ─── Current User Email ───────────────────────────────────────
 final currentUserEmailProvider = Provider<String?>((ref) {
-  try {
-    return Supabase.instance.client.auth.currentUser?.email;
-  } catch (e) {
-    print('ERROR: currentUserEmailProvider: $e');
-    return null;
-  }
+  return Supabase.instance.client.auth.currentUser?.email;
 });
 
 // ─── Is Logged In ─────────────────────────────────────────────
@@ -56,34 +37,23 @@ final isLoggedInProvider = Provider<bool>((ref) {
 // ─── User Profile Provider (Future) ──────────────────────────
 final userProfileProvider = FutureProvider<UserModel?>((ref) async {
   final userId = ref.watch(currentUserProvider);
-  print('DEBUG: userProfileProvider: Watching userId: $userId');
-  
-  if (userId == null) {
-    print('DEBUG: userProfileProvider: userId is NULL, returning null profile');
-    return null;
-  }
-  
+  if (userId == null) return null;
   final service = ref.read(supabaseServiceProvider);
-  final profile = await service.getUserProfile(userId);
-  print('DEBUG: userProfileProvider: Final resolved role for $userId: ${profile?.role}');
-  return profile;
+  return await service.getUserProfile(userId);
 });
 
 // ─── User Role Provider (Future) ─────────────────────────────
-/// Returns the user's role: 'user', 'delivery', or 'admin'.
-/// This is the source of truth for all role-based UI guards.
 final userRoleProvider = FutureProvider<String>((ref) async {
   final profile = await ref.watch(userProfileProvider.future);
-  final role    = profile?.role ?? 'user';
-  print('DEBUG: userRoleProvider: Resolved role: $role');
-  return role;
+  return profile?.role ?? 'user';
 });
 
 
-// ─── Approved Kitchens Provider (Future) ──────────────────────
-final approvedKitchensProvider = FutureProvider<List<KitchenModel>>((ref) async {
+// ─── Approved Kitchens Provider (Stream) ──────────────────────
+/// Real-time stream to reflect kitchen deletions or status changes immediately.
+final approvedKitchensProvider = StreamProvider<List<KitchenModel>>((ref) {
   final service = ref.read(supabaseServiceProvider);
-  return await service.getApprovedKitchens();
+  return service.watchApprovedKitchens();
 });
 
 final kitchenByIdProvider = FutureProvider.family<KitchenModel?, String>((ref, id) async {
@@ -240,3 +210,27 @@ final cartProvider = StateNotifierProvider<CartNotifier, Map<String, CartItem>>(
 
 // ─── Delivery Online Status ──────────────────────────────────
 final isOnlineProvider = StateProvider<bool>((ref) => false);
+
+// ─── UI State Providers (Home) ────────────────────────────────
+final selectedCategoryProvider = StateProvider<String>((ref) => 'All');
+final searchQueryProvider = StateProvider<String>((ref) => '');
+final navIndexProvider = StateProvider<int>((ref) => 0);
+
+// ─── Optimized/Memoized Filtered Kitchens ─────────────────────
+/// This provider offloads the filtering logic from the UI build method.
+/// It only recalculates when kitchens, category, or search query changes.
+final filteredKitchensProvider = Provider<AsyncValue<List<KitchenModel>>>((ref) {
+  final kitchensAsync = ref.watch(approvedKitchensProvider);
+  final selectedCategory = ref.watch(selectedCategoryProvider);
+  final searchQuery = ref.watch(searchQueryProvider).toLowerCase();
+
+  return kitchensAsync.whenData((kitchens) {
+    return kitchens.where((k) {
+      final matchesCategory = selectedCategory == 'All' || 
+                             (selectedCategory == 'Veg' && k.isVeg) || 
+                             (selectedCategory == 'Non-Veg' && k.isNonVeg);
+      final matchesSearch = k.name.toLowerCase().contains(searchQuery);
+      return matchesCategory && matchesSearch;
+    }).toList();
+  });
+});

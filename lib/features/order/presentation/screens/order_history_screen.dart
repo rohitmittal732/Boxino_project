@@ -50,7 +50,7 @@ class _OrderHistoryCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Generate a simple timeline component based on status
-    final statuses = ['pending', 'accepted', 'picked_up', 'on_the_way', 'delivered'];
+    final statuses = ['pending', 'accepted', 'preparing', 'picked_up', 'out_for_delivery', 'delivered'];
     final currentIndex = statuses.indexOf(order.status);
     
     return Card(

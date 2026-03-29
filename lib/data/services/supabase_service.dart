@@ -86,12 +86,38 @@ class SupabaseService {
     try {
       final response = await _client.from('users').select().eq('id', userId).maybeSingle();
       if (response != null) {
-        return UserModel.fromJson(response);
+        final profile = UserModel.fromJson(response);
+        // 🚀 V5 MASTER: Automated Role-to-JWT Sync
+        if (userId == _client.auth.currentUser?.id) {
+          await syncAuthMetadata(profile.role);
+        }
+        return profile;
       }
       return null;
     } catch (e) {
       print('ERROR: SupabaseService: Error fetching profile for $userId: $e');
       return null;
+    }
+  }
+
+  /// 🔒 V5 MASTER: Automated Metadata Sync
+  /// Ensures that the Auth JWT always matches the Database Role.
+  Future<void> syncAuthMetadata(String role) async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user != null) {
+        final currentMetadataRole = user.userMetadata?['role'] as String?;
+        if (currentMetadataRole != role) {
+          print('LOG: SupabaseService: Syncing Auth Metadata role to $role');
+          await _client.auth.updateUser(
+            UserAttributes(data: {'role': role}),
+          );
+          // 🔥 Force session refresh to obtain new JWT claims immediately
+          await _client.auth.refreshSession();
+        }
+      }
+    } catch (e) {
+      print('WARNING: SupabaseService: Failed to sync auth metadata: $e');
     }
   }
 
@@ -116,9 +142,15 @@ class SupabaseService {
 
   Future<void> updateUserRole(String userId, String role) async {
     try {
+      // 1. Update Database
       await _client.from('users').update({'role': role}).eq('id', userId);
+      
+      // 2. 🚀 V5 MASTER: Sync Metadata if updating current user
+      if (userId == _client.auth.currentUser?.id) {
+        await syncAuthMetadata(role);
+      }
     } catch (e) {
-      print('ERROR: SupabaseService: Error updating role: $e');
+      print('ERROR: SupabaseService: Error updating role for $userId: $e');
       rethrow;
     }
   }
@@ -133,6 +165,15 @@ class SupabaseService {
   }
 
   // KITCHENS
+  Stream<List<KitchenModel>> watchApprovedKitchens() {
+    return _client
+        .from('kitchens')
+        .stream(primaryKey: ['id'])
+        .eq('is_approved', true)
+        .order('name', ascending: true)
+        .map((list) => list.map((data) => KitchenModel.fromJson(data)).toList());
+  }
+
   Future<List<KitchenModel>> getApprovedKitchens({int limit = 20, int offset = 0}) async {
     final response = await _client
         .from('kitchens')
