@@ -9,7 +9,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 class OrderTrackingScreen extends ConsumerStatefulWidget {
   final String orderId;
-  const OrderTrackingScreen({super.key, required this.orderId});
+  final OrderModel? initialOrder;
+
+  const OrderTrackingScreen({super.key, required this.orderId, this.initialOrder});
 
   @override
   ConsumerState<OrderTrackingScreen> createState() => _OrderTrackingScreenState();
@@ -30,6 +32,21 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
   Widget build(BuildContext context) {
     final trackingAsync = ref.watch(combinedTrackingProvider(widget.orderId));
 
+    return trackingAsync.when(
+      data: (data) => _buildUI(context, data['order'] as OrderModel?, ref),
+      loading: () => widget.initialOrder != null 
+          ? _buildUI(context, widget.initialOrder, ref)
+          : const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (e, s) => Scaffold(body: Center(child: Text('Error: $e'))),
+    );
+  }
+
+  Widget _buildUI(BuildContext context, OrderModel? order, WidgetRef ref) {
+    if (order == null) return const Scaffold(body: Center(child: Text('Order not found.')));
+    
+    final customerAsync = ref.watch(riderDetailsProvider(order.userId));
+    final eta = order.adminEta ?? 30;
+
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
@@ -39,141 +56,129 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
         elevation: 0,
         centerTitle: true,
       ),
-      body: trackingAsync.when(
-        data: (data) {
-          final order = data['order'] as OrderModel?;
-          if (order == null) return const Center(child: Text('Order not found.'));
-          
-          final customerAsync = ref.watch(riderDetailsProvider(order.userId));
-          final eta = order.adminEta ?? 30;
-
-          return SingleChildScrollView(
-            child: Column(
-              children: [
-                // ─── Status & Progress ───────────────────────────────────────
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  margin: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
-                  ),
-                  child: Column(
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            // ─── Status & Progress ───────────────────────────────────────
+            Container(
+              padding: const EdgeInsets.all(24),
+              margin: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                order.status.replaceAll('_', ' ').toUpperCase(),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 20,
-                                  color: AppTheme.primaryOrange,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text('Order ID: #${order.id.substring(0, 8)}', style: const TextStyle(color: Colors.grey, fontSize: 13)),
-                            ],
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryOrange.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Column(
-                              children: [
-                                const Text('ETA', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryOrange)),
-                                Text('$eta min', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryOrange)),
-                              ],
+                          Text(
+                            order.status.replaceAll('_', ' ').toUpperCase(),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 20,
+                              color: AppTheme.primaryOrange,
                             ),
                           ),
+                          const SizedBox(height: 4),
+                          Text('Order ID: #${order.id.substring(0, 8)}', style: const TextStyle(color: Colors.grey, fontSize: 13)),
                         ],
                       ),
-                      const SizedBox(height: 24),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: LinearProgressIndicator(
-                          value: _getStatusProgress(order.status),
-                          backgroundColor: Colors.grey.shade100,
-                          color: AppTheme.primaryGreen,
-                          minHeight: 10,
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryOrange.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          _statusPoint('Order Placed', true, Icons.shopping_basket_outlined),
-                          _statusPoint('Preparing', _getStatusProgress(order.status) >= 0.45, Icons.soup_kitchen_outlined),
-                          _statusPoint('On the Way', _getStatusProgress(order.status) >= 0.85, Icons.delivery_dining_outlined),
-                          _statusPoint('Delivered', _getStatusProgress(order.status) >= 1.0, Icons.check_circle_outline),
-                        ],
+                        child: Column(
+                          children: [
+                            const Text('ETA', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryOrange)),
+                            Text('$eta min', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryOrange)),
+                          ],
+                        ),
                       ),
                     ],
                   ),
-                ),
-
-                // ─── Delivery Partner ────────────────────────────────────────
-                if (order.deliveryBoyId != null)
-                  _buildProfileCard(
-                    title: 'Delivery Partner',
-                    name: order.riderName ?? 'Assigning...',
-                    phone: order.riderPhone ?? '',
-                    icon: Icons.delivery_dining,
-                    color: AppTheme.primaryOrange,
-                    isMe: ref.watch(currentUserProvider) == order.deliveryBoyId,
-                  ),
-
-                // ─── Customer Details ────────────────────────────────────────
-                _buildProfileCard(
-                  title: 'Delivery Address',
-                  name: order.customerName ?? customerAsync.valueOrNull?.name ?? 'User',
-                  phone: order.customerPhone ?? customerAsync.valueOrNull?.phone ?? '',
-                  address: order.areaName ?? order.userAddress,
-                  icon: Icons.home,
-                  color: AppTheme.primaryGreen,
-                  isMe: ref.watch(currentUserProvider) == order.userId,
-                ),
-
-                // ─── Cancellation (Optional) ─────────────────────────────────
-                if (order.status == 'pending')
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: TextButton(
-                        onPressed: () async {
-                          try {
-                            await ref.read(supabaseServiceProvider).updateOrderStatus(order.id, 'cancelled');
-                            if (mounted) context.pop();
-                          } catch (e) {
-                            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
-                          }
-                        },
-                        child: const Text('CANCEL ORDER', style: TextStyle(color: AppTheme.errorRed, fontWeight: FontWeight.bold)),
-                      ),
+                  const SizedBox(height: 24),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: LinearProgressIndicator(
+                      value: _getStatusProgress(order.status),
+                      backgroundColor: Colors.grey.shade100,
+                      color: AppTheme.primaryGreen,
+                      minHeight: 10,
                     ),
                   ),
-
-                // ─── Rider Controls ──────────────────────────────────────────
-                if (ref.watch(userRoleProvider).valueOrNull == 'delivery' && (order.status != 'delivered' || order.paymentStatus != 'paid'))
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-                    child: _buildRiderActions(order, ref),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _statusPoint('Order Placed', true, Icons.shopping_basket_outlined),
+                      _statusPoint('Preparing', _getStatusProgress(order.status) >= 0.45, Icons.soup_kitchen_outlined),
+                      _statusPoint('On the Way', _getStatusProgress(order.status) >= 0.85, Icons.delivery_dining_outlined),
+                      _statusPoint('Delivered', _getStatusProgress(order.status) >= 1.0, Icons.check_circle_outline),
+                    ],
                   ),
-                
-                const SizedBox(height: 50),
-              ],
+                ],
+              ),
             ),
-          );
-        },
-        loading: () => const SizedBox(), // No loader
-        error: (e, s) => Center(child: Text('Error: $e')),
+
+            // ─── Delivery Partner ────────────────────────────────────────
+            if (order.deliveryBoyId != null)
+              _buildProfileCard(
+                title: 'Delivery Partner',
+                name: order.riderName ?? 'Assigning...',
+                phone: order.riderPhone ?? '',
+                icon: Icons.delivery_dining,
+                color: AppTheme.primaryOrange,
+                isMe: ref.watch(currentUserProvider) == order.deliveryBoyId,
+              ),
+
+            // ─── Customer Details ────────────────────────────────────────
+            _buildProfileCard(
+              title: 'Delivery Address',
+              name: order.customerName ?? customerAsync.valueOrNull?.name ?? 'User',
+              phone: order.customerPhone ?? customerAsync.valueOrNull?.phone ?? '',
+              address: order.areaName ?? order.userAddress,
+              icon: Icons.home,
+              color: AppTheme.primaryGreen,
+              isMe: ref.watch(currentUserProvider) == order.userId,
+            ),
+
+            // ─── Cancellation (Optional) ─────────────────────────────────
+            if (order.status == 'pending')
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    onPressed: () async {
+                      try {
+                        await ref.read(supabaseServiceProvider).updateOrderStatus(order.id, 'cancelled');
+                        if (mounted) context.pop();
+                      } catch (e) {
+                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+                      }
+                    },
+                    child: const Text('CANCEL ORDER', style: TextStyle(color: AppTheme.errorRed, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ),
+
+            // ─── Rider Controls ──────────────────────────────────────────
+            if (ref.watch(userRoleProvider).valueOrNull == 'delivery' && (order.status != 'delivered' || order.paymentStatus != 'paid'))
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                child: _buildRiderActions(order, ref),
+              ),
+            
+            const SizedBox(height: 50),
+          ],
+        ),
       ),
     );
   }
@@ -286,13 +291,10 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
       nextStatus = 'out_for_delivery';
       color = Colors.deepPurple;
     } else if (order.status == 'out_for_delivery') {
-      label = 'MARK AS DELIVERED';
-      nextStatus = 'delivered';
+      // 🔥 PRODUCTION FLOW: Mark payment received, which then moves to delivered
+      label = 'PAYMENT RECEIVED & DELIVERED ✅';
+      nextStatus = 'delivered'; 
       color = AppTheme.primaryGreen;
-    } else if (order.status == 'delivered' && order.paymentStatus != 'paid') {
-      label = 'PAYMENT RECEIVED ✅';
-      nextStatus = 'paid';
-      color = Colors.green;
     }
 
     if (label.isEmpty) return const SizedBox();
@@ -302,8 +304,10 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
       child: ElevatedButton(
         onPressed: () async {
           final service = ref.read(supabaseServiceProvider);
-          if (nextStatus == 'paid') {
+          if (nextStatus == 'delivered') {
+            // Mark both as paid and delivered for single-click efficiency
             await service.updatePaymentStatus(order.id, 'paid');
+            await service.updateDeliveryStatus(order.id, 'delivered');
           } else {
             await service.updateDeliveryStatus(order.id, nextStatus);
           }

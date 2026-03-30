@@ -209,6 +209,14 @@ class CartNotifier extends StateNotifier<Map<String, CartItem>> {
     });
     return sum;
   }
+
+  int get totalQuantity {
+    int count = 0;
+    state.forEach((key, item) {
+      count += item.quantity;
+    });
+    return count;
+  }
 }
 
 final cartProvider = StateNotifierProvider<CartNotifier, Map<String, CartItem>>((ref) {

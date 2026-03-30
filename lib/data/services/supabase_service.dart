@@ -289,7 +289,7 @@ class SupabaseService {
         .from('orders')
         .select('kitchen_id, kitchens(*)')
         .eq('user_id', user.id)
-        .eq('status', 'delivered') // 🔥 V5 MASTER: Only rate delivered orders
+        .or('status.eq.delivered,status.eq.Delivered') // 🔥 Fix: Handle both cases
         .order('created_at', ascending: false)
         .limit(20);
 
@@ -322,7 +322,7 @@ class SupabaseService {
         .from('orders')
         .select('kitchen_id')
         .eq('user_id', user.id)
-        .eq('status', 'delivered');
+        .or('status.eq.delivered,status.eq.Delivered'); // 🔥 Fix: Handle both cases
     
     final ratedKitchens = await _client
         .from('ratings')

@@ -856,12 +856,11 @@ class _AdminOrdersTabState extends ConsumerState<AdminOrdersTab> {
           );
         },
       );
-      },
-      loading: () => const SizedBox(),
-
-      error: (e, s) => Center(child: Text('Error: $e')),
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, s) => Center(child: Text('Error: $e')),
+      ),
     ),
-  ),
       ],
     );
   }
@@ -1059,8 +1058,7 @@ class AdminUsersTab extends ConsumerWidget {
           );
         },
       ),
-      loading: () => const SizedBox(),
-
+      loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, s) => Center(child: Text('Error loading users: $e')),
     );
   }
@@ -1118,6 +1116,9 @@ class AdminProfileTab extends ConsumerWidget {
                         ref.invalidate(adminOrdersProvider);
                         ref.invalidate(userProfileProvider);
                         if (context.mounted) {
+                          while (context.canPop()) {
+                            context.pop();
+                          }
                           context.go('/login');
                         }
                       },

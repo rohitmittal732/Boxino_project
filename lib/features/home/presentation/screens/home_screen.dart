@@ -86,9 +86,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
+                          final role = ref.watch(userRoleProvider).valueOrNull ?? 'user';
+                          final isRider = role == 'delivery';
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 16.0),
-                            child: KitchenCard(kitchen: filteredKitchens[index]),
+                            child: KitchenCard(kitchen: filteredKitchens[index], isRider: isRider),
                           );
                         },
                         childCount: filteredKitchens.length,
@@ -208,15 +210,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-class KitchenCard extends ConsumerWidget {
+class KitchenCard extends StatelessWidget {
   final KitchenModel kitchen;
-  const KitchenCard({super.key, required this.kitchen});
+  final bool isRider;
+  const KitchenCard({super.key, required this.kitchen, this.isRider = false});
 
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final role = ref.watch(userRoleProvider).valueOrNull ?? 'user';
-    final isRider = role == 'delivery';
+  Widget build(BuildContext context) {
 
 
     return Container(

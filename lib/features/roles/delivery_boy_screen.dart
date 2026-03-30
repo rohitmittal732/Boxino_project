@@ -126,7 +126,7 @@ class DeliveryCard extends ConsumerWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       margin: const EdgeInsets.only(bottom: 16),
       child: InkWell(
-        onTap: () => context.push('/order-tracking', extra: order.id),
+        onTap: () => context.push('/order-tracking', extra: order),
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -277,7 +277,12 @@ class DeliveryProfileTab extends ConsumerWidget {
             title: const Text('Logout', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
             onTap: () async {
               await ref.read(authNotifierProvider.notifier).signOut();
-              if (context.mounted) context.go('/login');
+              if (context.mounted) {
+                while (context.canPop()) {
+                  context.pop();
+                }
+                context.go('/login');
+              }
             },
           ),
         ],

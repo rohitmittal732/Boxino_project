@@ -132,7 +132,7 @@ class KitchenDetailScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${cart.length} item${cart.length > 1 ? 's' : ''}',
+                        '${ref.read(cartProvider.notifier).totalQuantity} item${ref.read(cartProvider.notifier).totalQuantity > 1 ? 's' : ''}',
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                       ),
                       Text(

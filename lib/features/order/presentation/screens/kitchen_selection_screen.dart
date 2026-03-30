@@ -30,12 +30,11 @@ class KitchenSelectionScreen extends ConsumerWidget {
                 children: [
                   Icon(Icons.restaurant_outlined, size: 64, color: Colors.grey.shade300),
                   const SizedBox(height: 16),
-                  const Text('No recent orders to rate yet!', style: TextStyle(color: Colors.grey, fontSize: 16)),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: () => context.go('/home'),
-                    child: const Text('Order Now'),
-                  ),
+                  const Text('No delivered orders yet', style: TextStyle(color: Colors.grey, fontSize: 16)),
+                  const SizedBox(height: 8),
+                  const Text('Rate your favorite home kitchens once\nyour order is delivered.', 
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey, fontSize: 13)),
                 ],
               ),
             );

@@ -106,51 +106,39 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
       final authState = ref.read(authNotifierProvider);
       final authenticated = authState.isAuthenticated;
 
-      // 1. Unauthenticated users go to login if trying to access protected routes
-      if (_protectedRoutes.any((r) => location.startsWith(r))) {
-        if (!authenticated) {
-          print('DEBUG: AppRouter: Unauthenticated state, redirecting to /login');
+      print('DEBUG: AppRouter: location=$location, authenticated=$authenticated');
+
+      // 1. Unauthenticated users: Redirect if trying to access protected routes
+      if (!authenticated) {
+        if (_protectedRoutes.any((r) => location.startsWith(r))) {
+          print('DEBUG: AppRouter: Unauthenticated, redirecting to /login');
           return '/login';
         }
+        return null;
       }
 
-      // 2. Authenticated users
-      if (authenticated) {
-        final user = Supabase.instance.client.auth.currentUser;
-        
-        // 🔥 CRITICAL FIX: WATCH THE ROLE PROVIDER
-        // Since userRoleProvider is a FutureProvider, we use valueOrNull
-        // to avoid blocking the redirect during the initial fetch.
-        final roleAsync = ref.watch(userRoleProvider);
-        final role = roleAsync.valueOrNull ?? 'user';
+      // 2. Authenticated users: Handle role-based navigation and protection
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return '/login'; 
 
-        print('DEBUG: AppRouter: Resolved Database role: $role');
+      // OPTIMIZATION: Use metadata role immediately to prevent async flicker
+      final metadataRole = user.userMetadata?['role'] as String?;
+      final roleAsync = ref.watch(userRoleProvider);
+      final role = metadataRole ?? roleAsync.valueOrNull ?? 'user';
 
+      print('DEBUG: AppRouter: Resolved role for redirect: $role');
 
-          
-        // Prevent traversing back to login/signup while logged in
-        if (_authRoutes.contains(location)) {
-          if (role == 'admin') return '/admin';
-          if (role == 'delivery') return '/delivery';
-          return '/home';
-        }
-
-        // Role-based route protection guards
-        if (location == '/admin' && role != 'admin') return '/home';
-        if (location == '/delivery' && role != 'delivery') return '/home';
-        
-        // If on root (Splash), send to correct landing page
-        if (location == '/') {
-          if (role == 'admin') {
-            return '/admin';
-          } else if (role == 'delivery') {
-            return '/delivery';
-          } else {
-            return '/home';
-          }
-        }
+      // Prevent traversing back to auth routes while logged in
+      if (_authRoutes.contains(location) || location == '/') {
+        if (role == 'admin') return '/admin';
+        if (role == 'delivery') return '/delivery';
+        return '/home';
       }
 
+      // Role-based route protection guards
+      if (location == '/admin' && role != 'admin') return '/home';
+      if (location == '/delivery' && role != 'delivery') return '/home';
+      
       return null;
     },
   routes: [
@@ -212,6 +200,9 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
     GoRoute(
       path: '/order-tracking',
       builder: (context, state) {
+        if (state.extra is OrderModel) {
+          return OrderTrackingScreen(orderId: (state.extra as OrderModel).id, initialOrder: state.extra as OrderModel);
+        }
         final orderId = state.extra as String;
         return OrderTrackingScreen(orderId: orderId);
       },
