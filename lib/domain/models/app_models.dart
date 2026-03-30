@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class UserModel {
   final String id;
   final String name;
@@ -8,7 +10,6 @@ class UserModel {
   final String? locationName;
   final String? userAddress;
   final String? areaName;
-
 
   UserModel({
     required this.id,
@@ -22,14 +23,13 @@ class UserModel {
     this.areaName,
   });
 
-
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
-      id: json['id'] as String,
-      name: json['name'] as String? ?? 'User',
-      email: json['email'] as String? ?? '',
-      phone: json['phone'] as String? ?? '0000000000',
-      role: json['role'] as String? ?? 'user',
+      id: (json['id'] as String?) ?? '',
+      name: (json['name'] as String?) ?? 'User',
+      email: (json['email'] as String?) ?? '',
+      phone: (json['phone'] as String?) ?? '0000000000',
+      role: (json['role'] as String?) ?? 'user',
       preference: json['preference'] as String?,
       locationName: json['location_name'] as String?,
       userAddress: json['user_address'] as String?,
@@ -43,7 +43,6 @@ class UserModel {
         'email': email,
         'phone': phone,
         'role': role,
-
         'preference': preference,
         'location_name': locationName,
         'user_address': userAddress,
@@ -62,7 +61,6 @@ class KitchenModel {
   final bool isVeg;
   final bool isNonVeg;
   final String address;
-
   final double pricePerMeal;
   final bool isApproved;
 
@@ -71,37 +69,38 @@ class KitchenModel {
     required this.name,
     required this.imageUrl,
     required this.rating,
-    this.ratingAvg = 0,
-    this.totalReviews = 0,
+    double? ratingAvg,
+    int? totalReviews,
     required this.description,
     required this.isVeg,
     required this.isNonVeg,
     required this.address,
-
     required this.pricePerMeal,
     this.isApproved = true,
-  });
+  }) : ratingAvg = ratingAvg ?? rating,
+       totalReviews = totalReviews ?? 0;
 
   factory KitchenModel.fromJson(Map<String, dynamic> json) {
     const defaultImage = "https://www.eurokidsindia.com/blog/wp-content/uploads/2023/03/best-healthy-food-for-kids-1.png";
     return KitchenModel(
-      id: json['id'] as String,
-      name: json['name'] as String,
+      id: (json['id'] as String?) ?? '',
+      name: (json['name'] as String?) ?? 'Unknown Kitchen',
       imageUrl: (json['image_url'] as String? ?? json['image'] as String? ?? '').isEmpty ? defaultImage : (json['image_url'] as String? ?? json['image'] as String? ?? ''),
       rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
       ratingAvg: (json['rating_avg'] as num?)?.toDouble() ?? (json['rating'] as num?)?.toDouble() ?? 0.0,
       totalReviews: (json['total_reviews'] as num?)?.toInt() ?? 0,
-      description: json['description'] as String? ?? '',
-      isVeg: json['is_veg'] as bool? ?? true,
-      isNonVeg: json['is_non_veg'] as bool? ?? false,
-      address: json['address'] as String? ?? '',
+      description: (json['description'] as String?) ?? '',
+      isVeg: (json['is_veg'] as bool?) ?? true,
+      isNonVeg: (json['is_non_veg'] as bool?) ?? false,
+      address: (json['address'] as String?) ?? '',
       pricePerMeal: (json['price_per_meal'] as num?)?.toDouble() ?? 0.0,
-      isApproved: json['is_approved'] as bool? ?? true,
+      isApproved: (json['is_approved'] as bool?) ?? true,
     );
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> map = {
+    return {
+      'id': id,
       'name': name,
       'image_url': imageUrl,
       'rating': rating,
@@ -111,12 +110,9 @@ class KitchenModel {
       'is_veg': isVeg,
       'is_non_veg': isNonVeg,
       'address': address,
-
       'price_per_meal': pricePerMeal,
       'is_approved': isApproved,
     };
-    if (id.isNotEmpty) map['id'] = id;
-    return map;
   }
 }
 
@@ -136,35 +132,45 @@ class MenuModel {
     required this.id,
     required this.kitchenId,
     required this.name,
+    double? rating,
+    double? ratingAvg,
+    int? totalReviews,
     required this.description,
     required this.price,
     required this.category,
     required this.imageUrl,
-  });
+  }) : rating = rating ?? 0.0,
+       ratingAvg = ratingAvg ?? 0.0,
+       totalReviews = totalReviews ?? 0;
 
   factory MenuModel.fromJson(Map<String, dynamic> json) {
     return MenuModel(
-      id: json['id'] as String,
-      kitchenId: json['kitchen_id'] as String,
-      name: json['name'] as String,
-      description: json['description'] as String? ?? '',
-      price: (json['price'] as num).toDouble(),
-      category: json['category'] as String? ?? 'Veg',
-      imageUrl: json['image_url'] as String? ?? json['image'] as String? ?? '',
+      id: (json['id'] as String?) ?? '',
+      kitchenId: (json['kitchen_id'] as String?) ?? '',
+      name: (json['name'] as String?) ?? 'Menu Item',
+      rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
+      ratingAvg: (json['rating_avg'] as num?)?.toDouble() ?? 0.0,
+      totalReviews: (json['total_reviews'] as num?)?.toInt() ?? 0,
+      description: (json['description'] as String?) ?? '',
+      price: (json['price'] as num?)?.toDouble() ?? 0.0,
+      category: (json['category'] as String?) ?? 'Veg',
+      imageUrl: (json['image_url'] as String?) ?? '',
     );
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> map = {
+    return {
+      'id': id,
       'kitchen_id': kitchenId,
       'name': name,
+      'rating': rating,
+      'rating_avg': ratingAvg,
+      'total_reviews': totalReviews,
       'description': description,
       'price': price,
       'category': category,
       'image_url': imageUrl,
     };
-    if (id.isNotEmpty) map['id'] = id;
-    return map;
   }
 }
 
@@ -181,11 +187,7 @@ class OrderModel {
   final String paymentMethod; // 'cash', 'online'
   final String paymentStatus; // 'pending', 'paid'
   final String? areaName;
-
-
-
   final int? adminEta;
-
 
   // Metadata denormalized for UI performance
   final String? customerName;
@@ -212,9 +214,6 @@ class OrderModel {
     this.paymentMethod = 'cash',
     this.paymentStatus = 'pending',
     this.areaName,
-
-
-
     this.adminEta,
     this.customerName,
     this.customerPhone,
@@ -226,11 +225,7 @@ class OrderModel {
     this.deliveryTime,
   });
 
-
-  /// Alias so delivery screen can use [totalPrice] interchangeably with [price]
   double get price => totalPrice;
-
-  /// Default rider earning per delivery
   double get riderEarning => 40.0;
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
@@ -247,8 +242,6 @@ class OrderModel {
       paymentMethod: (json['payment_method'] as String?) ?? 'cash',
       paymentStatus: (json['payment_status'] as String?) ?? 'pending',
       areaName: (json['area_name'] as String?),
-
-
       adminEta: (json['admin_eta'] as num?)?.toInt(),
       customerName: (json['customer_name'] as String?),
       customerPhone: (json['customer_phone'] as String?),
@@ -275,8 +268,6 @@ class OrderModel {
     };
     if (deliveryBoyId != null) map['delivery_boy_id'] = deliveryBoyId;
     if (areaName != null) map['area_name'] = areaName;
-
-
     if (adminEta != null) map['admin_eta'] = adminEta;
     if (customerName != null) map['customer_name'] = customerName;
     if (customerPhone != null) map['customer_phone'] = customerPhone;
@@ -287,7 +278,6 @@ class OrderModel {
     if (planType != null) map['plan_type'] = planType;
     if (mealType != null) map['meal_type'] = mealType;
     if (deliveryTime != null) map['delivery_time'] = deliveryTime;
-
     return map;
   }
 }
@@ -298,7 +288,6 @@ class DeliveryModel {
   final String deliveryBoyId;
   final String status; // 'accepted', 'picked_up', 'on_the_way', 'delivered'
 
-
   DeliveryModel({
     required this.id,
     required this.orderId,
@@ -306,15 +295,13 @@ class DeliveryModel {
     required this.status,
   });
 
-
   factory DeliveryModel.fromJson(Map<String, dynamic> json) {
     return DeliveryModel(
-      id: json['id'] as String,
-      orderId: json['order_id'] as String,
-      deliveryBoyId: json['delivery_boy_id'] as String,
-      status: json['status'] as String? ?? 'accepted',
+      id: (json['id'] as String?) ?? '',
+      orderId: (json['order_id'] as String?) ?? '',
+      deliveryBoyId: (json['delivery_boy_id'] as String?) ?? '',
+      status: (json['status'] as String?) ?? 'accepted',
     );
-
   }
 
   Map<String, dynamic> toJson() {
@@ -323,7 +310,6 @@ class DeliveryModel {
       'delivery_boy_id': deliveryBoyId,
       'status': status,
     };
-
     if (id.isNotEmpty) map['id'] = id;
     return map;
   }

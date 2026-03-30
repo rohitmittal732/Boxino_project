@@ -10,7 +10,6 @@ final supabaseServiceProvider = Provider<SupabaseService>((ref) {
 });
 
 // ─── OTP Email Provider ───────────────────────────────────────
-/// Stores the email address during the OTP flow.
 final otpEmailProvider = StateProvider<String>((ref) => '');
 
 // ─── Auth State Stream (reactive) ─────────────────────────────
@@ -48,9 +47,7 @@ final userRoleProvider = FutureProvider<String>((ref) async {
   return profile?.role ?? 'user';
 });
 
-
 // ─── Approved Kitchens Provider (Stream) ──────────────────────
-/// Real-time stream to reflect kitchen deletions or status changes immediately.
 final approvedKitchensProvider = StreamProvider<List<KitchenModel>>((ref) {
   final service = ref.read(supabaseServiceProvider);
   return service.watchApprovedKitchens();
@@ -65,6 +62,12 @@ final kitchenByIdProvider = FutureProvider.family<KitchenModel?, String>((ref, i
 final kitchenMenusProvider = FutureProvider.family<List<MenuModel>, String>((ref, kitchenId) async {
   final service = ref.read(supabaseServiceProvider);
   return await service.getKitchenMenus(kitchenId);
+});
+
+// ─── Admin Ratings Provider (Future) ──────────────────────────
+final adminRatingsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final service = ref.read(supabaseServiceProvider);
+  return await service.getAllRatingsAdmin();
 });
 
 // ─── Unrated Kitchens Provider ────────────────────────────────
@@ -142,8 +145,6 @@ final combinedTrackingProvider = StreamProvider.family<Map<String, dynamic>, Str
     };
   }
 });
-
-
 
 final riderDetailsProvider = FutureProvider.family<UserModel?, String>((ref, userId) async {
   final service = ref.read(supabaseServiceProvider);
@@ -223,8 +224,6 @@ final searchQueryProvider = StateProvider<String>((ref) => '');
 final navIndexProvider = StateProvider<int>((ref) => 0);
 
 // ─── Optimized/Memoized Filtered Kitchens ─────────────────────
-/// This provider offloads the filtering logic from the UI build method.
-/// It only recalculates when kitchens, category, or search query changes.
 final filteredKitchensProvider = Provider<AsyncValue<List<KitchenModel>>>((ref) {
   final kitchensAsync = ref.watch(approvedKitchensProvider);
   final selectedCategory = ref.watch(selectedCategoryProvider);
