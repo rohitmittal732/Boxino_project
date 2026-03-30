@@ -8,6 +8,7 @@ import 'package:boxino/domain/models/app_models.dart';
 import 'package:go_router/go_router.dart';
 import 'package:boxino/data/services/supabase_service.dart';
 import 'package:uuid/uuid.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class AdminPanelScreen extends ConsumerStatefulWidget {
   const AdminPanelScreen({super.key});
