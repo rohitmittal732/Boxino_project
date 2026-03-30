@@ -67,10 +67,16 @@ final kitchenMenusProvider = FutureProvider.family<List<MenuModel>, String>((ref
   return await service.getKitchenMenus(kitchenId);
 });
 
-// ─── Admin Providers ──────────────────────────────────────────
-final adminKitchensProvider = FutureProvider<List<KitchenModel>>((ref) async {
+// ─── Unrated Kitchens Provider ────────────────────────────────
+final unratedKitchensCountProvider = FutureProvider<int>((ref) async {
   final service = ref.read(supabaseServiceProvider);
-  return await service.getAllKitchensAdmin();
+  return await service.countUnratedDeliveredOrders();
+});
+
+// ─── Admin Kitchens Provider (Stream) ────────────────────────
+final adminKitchensProvider = StreamProvider<List<KitchenModel>>((ref) {
+  final service = ref.read(supabaseServiceProvider);
+  return service.watchAllKitchensAdmin();
 });
 
 final adminOrdersProvider = StreamProvider<List<OrderModel>>((ref) {

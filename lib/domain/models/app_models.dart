@@ -56,6 +56,8 @@ class KitchenModel {
   final String name;
   final String imageUrl;
   final double rating;
+  final double ratingAvg;
+  final int totalReviews;
   final String description;
   final bool isVeg;
   final bool isNonVeg;
@@ -69,6 +71,8 @@ class KitchenModel {
     required this.name,
     required this.imageUrl,
     required this.rating,
+    this.ratingAvg = 0,
+    this.totalReviews = 0,
     required this.description,
     required this.isVeg,
     required this.isNonVeg,
@@ -85,6 +89,8 @@ class KitchenModel {
       name: json['name'] as String,
       imageUrl: (json['image_url'] as String? ?? json['image'] as String? ?? '').isEmpty ? defaultImage : (json['image_url'] as String? ?? json['image'] as String? ?? ''),
       rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
+      ratingAvg: (json['rating_avg'] as num?)?.toDouble() ?? (json['rating'] as num?)?.toDouble() ?? 0.0,
+      totalReviews: (json['total_reviews'] as num?)?.toInt() ?? 0,
       description: json['description'] as String? ?? '',
       isVeg: json['is_veg'] as bool? ?? true,
       isNonVeg: json['is_non_veg'] as bool? ?? false,
@@ -99,6 +105,8 @@ class KitchenModel {
       'name': name,
       'image_url': imageUrl,
       'rating': rating,
+      'rating_avg': ratingAvg,
+      'total_reviews': totalReviews,
       'description': description,
       'is_veg': isVeg,
       'is_non_veg': isNonVeg,
@@ -116,6 +124,9 @@ class MenuModel {
   final String id;
   final String kitchenId;
   final String name;
+  final double rating;
+  final double ratingAvg;
+  final int totalReviews;
   final String description;
   final double price;
   final String category; // 'Veg', 'Non-Veg', 'Combo'

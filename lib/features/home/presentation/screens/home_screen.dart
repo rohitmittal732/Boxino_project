@@ -254,12 +254,27 @@ class KitchenCard extends ConsumerWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(kitchen.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Expanded(
+                      child: Text(
+                        kitchen.name,
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                     Row(
                       children: [
                         const Icon(Icons.star, color: Colors.amber, size: 18),
                         const SizedBox(width: 4),
-                        Text(kitchen.rating.toStringAsFixed(1), style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text(
+                          '${kitchen.ratingAvg > 0 ? kitchen.ratingAvg.toStringAsFixed(1) : "New"}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        if (kitchen.totalReviews > 0)
+                          Text(
+                            ' (${kitchen.totalReviews})',
+                            style: const TextStyle(color: Colors.grey, fontSize: 12),
+                          ),
                       ],
                     ),
                   ],

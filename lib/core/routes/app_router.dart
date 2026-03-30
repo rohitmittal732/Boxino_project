@@ -21,6 +21,9 @@ import 'package:boxino/features/kitchen/presentation/screens/kitchen_detail_scre
 import 'package:boxino/features/order/presentation/screens/order_summary_screen.dart';
 import 'package:boxino/features/order/presentation/screens/order_success_screen.dart';
 import 'package:boxino/features/order/presentation/screens/order_tracking_screen.dart';
+import 'package:boxino/features/order/presentation/screens/kitchen_selection_screen.dart';
+import 'package:boxino/features/order/presentation/screens/rating_screen.dart';
+import 'package:boxino/features/order/presentation/screens/rating_success_screen.dart';
 import 'package:boxino/features/order/presentation/screens/order_history_screen.dart';
 import 'package:boxino/features/profile/presentation/screens/profile_screen.dart';
 import 'package:boxino/features/profile/presentation/screens/edit_profile_screen.dart';
@@ -220,6 +223,22 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
     GoRoute(
       path: '/delivery',
       builder: (context, state) => const DeliveryBoyScreen(),
+    ),
+    GoRoute(
+      path: '/rate-selection',
+      builder: (context, state) => const KitchenSelectionScreen(),
+    ),
+    GoRoute(
+      path: '/rate/:kid',
+      builder: (context, state) {
+        final kitchenId = state.pathParameters['kid']!;
+        final kitchen = state.extra as KitchenModel?;
+        return RatingScreen(kitchenId: kitchenId, kitchen: kitchen);
+      },
+    ),
+    GoRoute(
+      path: '/rate-success',
+      builder: (context, state) => const RatingSuccessScreen(),
     ),
     ],
   );

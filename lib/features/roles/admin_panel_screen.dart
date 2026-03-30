@@ -60,7 +60,8 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen> {
                 _buildTab(1, 'Kitchens'),
                 _buildTab(2, 'Orders'),
                 _buildTab(3, 'Users'),
-                _buildTab(4, 'Profile'),
+                _buildTab(4, 'Reviews'),
+                _buildTab(5, 'Profile'),
               ],
             ),
           ),
@@ -83,7 +84,8 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen> {
       case 1: return const AdminKitchensTab();
       case 2: return const AdminOrdersTab();
       case 3: return const AdminUsersTab();
-      case 4: return const AdminProfileTab();
+      case 4: return const AdminReviewsTab();
+      case 5: return const AdminProfileTab();
       default: return const SizedBox.shrink();
     }
   }
@@ -169,7 +171,7 @@ class _AdminPanelScreenState extends ConsumerState<AdminPanelScreen> {
                   );
 
                   await ref.read(supabaseServiceProvider).createKitchen(kitchen);
-                  ref.invalidate(adminKitchensProvider);
+                  // Realtime stream will auto-update, no invalidation normally needed, but good for safety
                   if (context.mounted) {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Kitchen Added Successfully!')));
@@ -1083,6 +1085,173 @@ class AdminProfileTab extends ConsumerWidget {
       loading: () => const SizedBox(),
 
       error: (e, s) => Center(child: Text('Error loading profile: $e')),
+    );
+  }
+}
+
+
+class AdminReviewsTab extends ConsumerStatefulWidget {
+  const AdminReviewsTab({super.key});
+
+  @override
+  ConsumerState<AdminReviewsTab> createState() => _AdminReviewsTabState();
+}
+
+class _AdminReviewsTabState extends ConsumerState<AdminReviewsTab> {
+  String? _selectedKitchenId;
+  int? _selectedRating;
+
+  @override
+  Widget build(BuildContext context) {
+    final ratingsAsync = ref.watch(adminRatingsProvider);
+    final kitchensAsync = ref.watch(adminKitchensProvider);
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.reviews_outlined, color: AppTheme.primaryOrange),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Customer Feedback',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // 🔥 Filter Row 1: Kitchens
+              kitchensAsync.when(
+                data: (kitchens) => SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      FilterChip(
+                        label: const Text('All Kitchens'),
+                        selected: _selectedKitchenId == null,
+                        onSelected: (_) => setState(() => _selectedKitchenId = null),
+                        selectedColor: AppTheme.primaryOrange,
+                        labelStyle: TextStyle(color: _selectedKitchenId == null ? Colors.white : Colors.black),
+                      ),
+                      const SizedBox(width: 8),
+                      ...kitchens.map((k) => Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: FilterChip(
+                          label: Text(k.name),
+                          selected: _selectedKitchenId == k.id,
+                          onSelected: (_) => setState(() => _selectedKitchenId = k.id),
+                          selectedColor: AppTheme.primaryOrange,
+                          labelStyle: TextStyle(color: _selectedKitchenId == k.id ? Colors.white : Colors.black),
+                        ),
+                      )).toList(),
+                    ],
+                  ),
+                ),
+                loading: () => const SizedBox(),
+                error: (_, __) => const SizedBox(),
+              ),
+              const SizedBox(height: 8),
+              // 🔥 Filter Row 2: Ratings
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    FilterChip(
+                      label: const Text('All Ratings'),
+                      selected: _selectedRating == null,
+                      onSelected: (_) => setState(() => _selectedRating = null),
+                      selectedColor: Colors.amber,
+                      labelStyle: TextStyle(color: _selectedRating == null ? Colors.white : Colors.black),
+                    ),
+                    const SizedBox(width: 8),
+                    ...[5, 4, 3, 2, 1].map((star) => Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: FilterChip(
+                        avatar: Icon(Icons.star, size: 14, color: _selectedRating == star ? Colors.white : Colors.amber),
+                        label: Text('$star Stars'),
+                        selected: _selectedRating == star,
+                        onSelected: (_) => setState(() => _selectedRating = star),
+                        selectedColor: Colors.amber,
+                        labelStyle: TextStyle(color: _selectedRating == star ? Colors.white : Colors.black),
+                      ),
+                    )).toList(),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ratingsAsync.when(
+            data: (ratings) {
+              final filtered = ratings.where((r) {
+                final kId = r['kitchen_id'];
+                final ratingVal = (r['rating'] as num?)?.toInt();
+                if (_selectedKitchenId != null && kId != _selectedKitchenId) return false;
+                if (_selectedRating != null && ratingVal != _selectedRating) return false;
+                return true;
+              }).toList();
+
+              if (filtered.isEmpty) {
+                return const Center(child: Text('No matching reviews.'));
+              }
+              return ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: filtered.length,
+                itemBuilder: (context, index) {
+                  final r = filtered[index];
+                  final kitchen = (r['kitchens'] as Map?)?['name'] ?? 'Unknown Kitchen';
+                  final user = (r['users'] as Map?)?['name'] ?? 'Anonymous';
+                  final ratingValue = (r['rating'] as num?)?.toInt() ?? 0;
+                  final feedback = r['feedback'] ?? 'No comment provided.';
+                  final date = DateTime.parse(r['created_at']);
+
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(kitchen, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryOrange)),
+                              Text('${date.day}/${date.month}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text('by $user', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: List.generate(5, (i) => Icon(
+                              i < ratingValue ? Icons.star : Icons.star_border,
+                              color: Colors.amber,
+                              size: 18,
+                            )),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            feedback,
+                            style: const TextStyle(fontSize: 14, fontStyle: FontStyle.italic),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, s) => Center(child: Text('Error: $e')),
+          ),
+        ),
+      ],
     );
   }
 }

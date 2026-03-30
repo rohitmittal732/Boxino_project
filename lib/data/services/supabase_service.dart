@@ -191,6 +191,22 @@ class SupabaseService {
     return (response as List).map((data) => KitchenModel.fromJson(data)).toList();
   }
 
+  Stream<List<KitchenModel>> watchAllKitchensAdmin() {
+    return _client
+        .from('kitchens')
+        .stream(primary_key: ['id'])
+        .order('created_at', ascending: false)
+        .map((list) => list.map((data) => KitchenModel.fromJson(data)).toList());
+  }
+
+  Stream<List<OrderModel>> watchAllOrdersAdmin() {
+    return _client
+        .from('orders')
+        .stream(primary_key: ['id'])
+        .order('created_at', ascending: false)
+        .map((list) => list.map((data) => OrderModel.fromJson(data)).toList());
+  }
+
   Future<void> createKitchen(KitchenModel kitchen) async {
     await _client.from('kitchens').insert(kitchen.toJson());
   }
@@ -229,6 +245,94 @@ class SupabaseService {
     final response = await _client.from('kitchens').select().eq('id', id).maybeSingle();
     if (response != null) return KitchenModel.fromJson(response);
     return null;
+  }
+
+  // RATINGS & FEEDBACK
+  Future<void> submitRating({
+    required String kitchenId,
+    required int rating,
+    String? feedback,
+  }) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception('User not authenticated');
+
+    await _client.from('ratings').upsert({
+      'user_id': user.id,
+      'kitchen_id': kitchenId,
+      'rating': rating,
+      'feedback': feedback,
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getKitchenRatings(String kitchenId) async {
+    final response = await _client
+        .from('ratings')
+        .select('*, users(name)')
+        .eq('kitchen_id', kitchenId)
+        .order('created_at', ascending: false);
+    return List<Map<String, dynamic>>.from(response);
+  }
+
+  Future<List<Map<String, dynamic>>> getAllRatingsAdmin() async {
+    final response = await _client
+        .from('ratings')
+        .select('*, kitchens(name), users(name)')
+        .order('created_at', ascending: false);
+    return List<Map<String, dynamic>>.from(response);
+  }
+
+  Future<List<KitchenModel>> getRecentKitchensForUser() async {
+    final user = _client.auth.currentUser;
+    if (user == null) return [];
+
+    final response = await _client
+        .from('orders')
+        .select('kitchen_id, kitchens(*)')
+        .eq('user_id', user.id)
+        .eq('status', 'delivered') // 🔥 V5 MASTER: Only rate delivered orders
+        .order('created_at', ascending: false)
+        .limit(20);
+
+    final List<KitchenModel> uniqueKitchens = [];
+    final Set<String> ids = {};
+
+    for (var item in response) {
+      final kData = item['kitchens'];
+      if (kData != null) {
+        final kitchen = KitchenModel.fromJson(kData);
+        if (!ids.contains(kitchen.id)) {
+          uniqueKitchens.add(kitchen);
+          ids.add(kitchen.id);
+        }
+      }
+    }
+    return uniqueKitchens;
+  }
+
+  Future<int> countUnratedDeliveredOrders() async {
+    final user = _client.auth.currentUser;
+    if (user == null) return 0;
+
+    // 🔥 V5 MASTER: Logic to find kitchens ordered but not yet rated
+    final response = await _client.rpc('get_unrated_kitchen_count');
+    if (response != null) return response as int;
+
+    // Fallback if RPC not applied
+    final orders = await _client
+        .from('orders')
+        .select('kitchen_id')
+        .eq('user_id', user.id)
+        .eq('status', 'delivered');
+    
+    final ratedKitchens = await _client
+        .from('ratings')
+        .select('kitchen_id')
+        .eq('user_id', user.id);
+
+    final Set<String> ratedIds = (ratedKitchens as List).map((r) => r['kitchen_id'] as String).toSet();
+    final Set<String> orderedIds = (orders as List).map((o) => o['kitchen_id'] as String).toSet();
+    
+    return orderedIds.difference(ratedIds).length;
   }
 
   // ORDERS
