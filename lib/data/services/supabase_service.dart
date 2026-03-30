@@ -194,7 +194,7 @@ class SupabaseService {
   Stream<List<KitchenModel>> watchAllKitchensAdmin() {
     return _client
         .from('kitchens')
-        .stream(primary_key: ['id'])
+        .stream(primaryKey: ['id'])
         .order('created_at', ascending: false)
         .map((list) => list.map((data) => KitchenModel.fromJson(data)).toList());
   }
@@ -202,7 +202,7 @@ class SupabaseService {
   Stream<List<OrderModel>> watchAllOrdersAdmin() {
     return _client
         .from('orders')
-        .stream(primary_key: ['id'])
+        .stream(primaryKey: ['id'])
         .order('created_at', ascending: false)
         .map((list) => list.map((data) => OrderModel.fromJson(data)).toList());
   }
