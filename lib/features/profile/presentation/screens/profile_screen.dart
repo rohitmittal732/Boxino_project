@@ -43,8 +43,6 @@ class ProfileScreen extends ConsumerWidget {
               const SizedBox(height: 32),
               _buildProfileOption(Icons.edit_note, 'Edit Profile', () => context.push('/edit-profile')),
               _buildProfileOption(Icons.receipt_long, 'Order History', () => context.push('/history')),
-              _buildProfileOption(Icons.calendar_month, 'Meal Plans', () => context.push('/plans')),
-              _buildProfileOption(Icons.location_on, 'Saved Addresses', () {}),
               const SizedBox(height: 16),
               // ⭐ Premium Rate & Feedback Button
               _buildHighlightButton(

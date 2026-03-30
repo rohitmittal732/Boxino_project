@@ -649,6 +649,13 @@ class AdminOrdersTab extends ConsumerStatefulWidget {
 }
 
 class _AdminOrdersTabState extends ConsumerState<AdminOrdersTab> {
+  Future<void> _callNumber(String phone) async {
+    final url = 'tel:$phone';
+    if (await canLaunchUrl(Uri.parse(url))) {
+      await launchUrl(Uri.parse(url));
+    }
+  }
+
   String _filter = 'All';
   String _searchQuery = '';
   Timer? _debounce;
@@ -747,13 +754,52 @@ class _AdminOrdersTabState extends ConsumerState<AdminOrdersTab> {
                    Text('Status: ${o.status.toUpperCase()}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
                   const SizedBox(height: 12),
                   // 🔥 Denormalized Customer Info
-                  Row(
+                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Icon(Icons.person, size: 16, color: Colors.grey),
-                      const SizedBox(width: 8),
-                      Text(o.customerName ?? 'User', style: const TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(width: 8),
-                      Text(o.customerPhone ?? '', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                      Row(
+                        children: [
+                          const Icon(Icons.person, size: 16, color: Colors.grey),
+                          const SizedBox(width: 8),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Customer: ${o.customerName ?? 'User'}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                              Text(o.customerPhone ?? 'No number', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                            ],
+                          ),
+                        ],
+                      ),
+                      if (o.customerPhone != null && o.customerPhone!.isNotEmpty)
+                        IconButton(
+                          icon: const Icon(Icons.call, color: Colors.green, size: 20),
+                          onPressed: () => _callNumber(o.customerPhone!),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.delivery_dining, size: 16, color: Colors.grey),
+                          const SizedBox(width: 8),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Rider: ${o.riderName ?? 'Unassigned'}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                              if (o.riderPhone != null)
+                                Text(o.riderPhone!, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                            ],
+                          ),
+                        ],
+                      ),
+                      if (o.riderPhone != null && o.riderPhone!.isNotEmpty)
+                        IconButton(
+                          icon: const Icon(Icons.call, color: AppTheme.primaryOrange, size: 20),
+                          onPressed: () => _callNumber(o.riderPhone!),
+                        ),
                     ],
                   ),
                   const Divider(),
@@ -1204,8 +1250,8 @@ class _AdminReviewsTabState extends ConsumerState<AdminReviewsTab> {
                 itemCount: filtered.length,
                 itemBuilder: (context, index) {
                   final r = filtered[index];
-                  final kitchen = (r['kitchens'] as Map?)?['name'] ?? 'Unknown Kitchen';
-                  final user = (r['users'] as Map?)?['name'] ?? 'Anonymous';
+                  final kitchen = (r['kitchen'] as Map?)?['name'] ?? 'Unknown Kitchen';
+                  final user = (r['user'] as Map?)?['name'] ?? 'Anonymous';
                   final ratingValue = (r['rating'] as num?)?.toInt() ?? 0;
                   final feedback = r['feedback'] ?? 'No comment provided.';
                   final date = DateTime.parse(r['created_at']);

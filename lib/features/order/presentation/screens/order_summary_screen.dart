@@ -107,7 +107,23 @@ class _OrderSummaryScreenState extends ConsumerState<OrderSummaryScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(item.menu.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                Text('₹${item.menu.price} x ${item.quantity}', style: const TextStyle(color: Colors.grey)),
+                                Row(
+                                  children: [
+                                    IconButton(
+                                      visualDensity: VisualDensity.compact,
+                                      icon: const Icon(Icons.remove_circle_outline, size: 20, color: Colors.grey),
+                                      onPressed: () => ref.read(cartProvider.notifier).removeItem(item.menu.id),
+                                    ),
+                                    Text('${item.quantity}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                    IconButton(
+                                      visualDensity: VisualDensity.compact,
+                                      icon: const Icon(Icons.add_circle_outline, size: 20, color: AppTheme.primaryOrange),
+                                      onPressed: () => ref.read(cartProvider.notifier).addItem(item.menu),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text('x ₹${item.menu.price}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                                  ],
+                                ),
                               ],
                             ),
                             Text('₹${item.menu.price * item.quantity}', style: const TextStyle(fontWeight: FontWeight.bold)),

@@ -150,16 +150,16 @@ class DeliveryCard extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(order.customerName ?? 'Unknown Customer', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                        const SizedBox(height: 4),
-                        Text('Address: ${order.userAddress}', style: const TextStyle(color: Colors.black87, fontSize: 14)),
+                        Text(order.customerName ?? 'User', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text(order.customerPhone ?? 'No number', style: const TextStyle(color: Colors.grey, fontSize: 12)),
                       ],
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => _makeCall(order.customerPhone),
-                    icon: const Icon(Icons.call, color: Colors.green),
-                  ),
+                  if (order.customerPhone != null && order.customerPhone!.isNotEmpty)
+                    IconButton(
+                      icon: const Icon(Icons.call, color: Colors.green),
+                      onPressed: () => _makeCall(order.customerPhone),
+                    ),
                 ],
               ),
               const SizedBox(height: 16),

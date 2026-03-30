@@ -267,7 +267,7 @@ class SupabaseService {
   Future<List<Map<String, dynamic>>> getKitchenRatings(String kitchenId) async {
     final response = await _client
         .from('ratings')
-        .select('*, users(name)')
+        .select('*, user:user_id(name)')
         .eq('kitchen_id', kitchenId)
         .order('created_at', ascending: false);
     return List<Map<String, dynamic>>.from(response);
@@ -276,7 +276,7 @@ class SupabaseService {
   Future<List<Map<String, dynamic>>> getAllRatingsAdmin() async {
     final response = await _client
         .from('ratings')
-        .select('*, kitchens(name), users(name)')
+        .select('*, kitchen:kitchen_id(name), user:user_id(name)')
         .order('created_at', ascending: false);
     return List<Map<String, dynamic>>.from(response);
   }
