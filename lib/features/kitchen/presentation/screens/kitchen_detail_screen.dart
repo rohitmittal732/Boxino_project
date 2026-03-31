@@ -14,7 +14,7 @@ class KitchenDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final menusAsync = ref.watch(kitchenMenusProvider(kitchen.id));
-    final cart = ref.watch(cartProvider);
+    // 🔥 Optimization: Don't watch the full cart at the top level
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -100,10 +100,17 @@ class KitchenDetailScreen extends ConsumerWidget {
                     return MenuItemCard(menu: item);
                   },
                   childCount: menus.length,
+                  addAutomaticKeepAlives: true,
+                  addRepaintBoundaries: true,
                 ),
               );
             },
-            loading: () => const SliverToBoxAdapter(child: SizedBox()),
+            loading: () => const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.all(32.0),
+                child: Center(child: CircularProgressIndicator(color: AppTheme.primaryOrange)),
+              ),
+            ),
             error: (e, s) => SliverToBoxAdapter(child: Center(child: Text('Error: $e'))),
           ),
 
@@ -113,45 +120,52 @@ class KitchenDetailScreen extends ConsumerWidget {
       
       // Cart Summary Bar
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: cart.isNotEmpty
-          ? Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryOrange,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
+      floatingActionButton: ref.watch(cartProvider.select((cart) => cart.isNotEmpty))
+          ? Consumer(
+              builder: (context, ref, child) {
+                final totalQuantity = ref.watch(cartProvider.select((cart) => ref.read(cartProvider.notifier).totalQuantity));
+                final total = ref.watch(cartProvider.select((cart) => ref.read(cartProvider.notifier).total));
+                
+                return Container(
+                  margin: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryOrange,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        '${ref.read(cartProvider.notifier).totalQuantity} item${ref.read(cartProvider.notifier).totalQuantity > 1 ? 's' : ''}',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '$totalQuantity item${totalQuantity > 1 ? 's' : ''}',
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            'Total: ₹$total',
+                            style: const TextStyle(color: Colors.white70, fontSize: 12),
+                          ),
+                        ],
                       ),
-                      Text(
-                        'Total: ₹${ref.read(cartProvider.notifier).total}',
-                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      ElevatedButton(
+                        onPressed: () => context.push('/order-summary'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: AppTheme.primaryOrange,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('View Cart'),
                       ),
                     ],
                   ),
-                  ElevatedButton(
-                    onPressed: () => context.push('/order-summary'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: AppTheme.primaryOrange,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: const Text('View Cart'),
-                  ),
-                ],
-              ),
+                );
+              },
             )
           : null,
     );
@@ -180,8 +194,8 @@ class MenuItemCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cart = ref.watch(cartProvider);
-    final quantity = cart[menu.id]?.quantity ?? 0;
+    // 🔥 Optimization: Only rebuild this card when its specific quantity changes
+    final quantity = ref.watch(cartProvider.select((cart) => cart[menu.id]?.quantity ?? 0));
 
     return Container(
       padding: const EdgeInsets.all(16),

@@ -7,14 +7,14 @@
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:boxino/core/providers/auth_notifier.dart';
 import 'package:boxino/core/providers/app_providers.dart';
+import 'package:boxino/data/services/firebase_service.dart';
 import 'package:boxino/features/auth/presentation/screens/splash_screen.dart';
-import 'package:boxino/features/auth/presentation/screens/login_screen.dart';
-import 'package:boxino/features/auth/presentation/screens/signup_screen.dart';
-import 'package:boxino/features/auth/presentation/screens/forgot_password_screen.dart';
+import 'package:boxino/features/auth/presentation/screens/phone_login_screen.dart';
+import 'package:boxino/features/auth/presentation/screens/otp_verify_screen.dart';
 import 'package:boxino/features/profile/presentation/screens/profile_setup_screen.dart';
 import 'package:boxino/features/home/presentation/screens/home_screen.dart';
 import 'package:boxino/features/kitchen/presentation/screens/kitchen_detail_screen.dart';
@@ -34,9 +34,7 @@ import 'package:boxino/domain/models/app_models.dart';
 // ── Auth helper ─────────────────────────────────────────────────────────────
 bool get _isAuthenticated {
   try {
-    // Fail-safe check in case Supabase hasn't initialized correctly or connectivity is lost
-    final client = Supabase.instance.client;
-    return client.auth.currentSession != null;
+    return fb.FirebaseAuth.instance.currentUser != null;
   } catch (e) {
     print('WARNING: AppRouter: _isAuthenticated check failed: $e');
     return false;
@@ -59,7 +57,7 @@ const _protectedRoutes = [
 ];
 
 // ── Auth-only routes — redirect away if already logged in ───────────────────
-const _authRoutes = ['/login', '/signup', '/forgot-password'];
+const _authRoutes = ['/login', '/otp'];
 
 // ── Router Notifier ──────────────────────────────────────────────────────────
 class RouterNotifier extends ChangeNotifier {
@@ -73,10 +71,10 @@ class RouterNotifier extends ChangeNotifier {
       notifyListeners();
     });
 
-    // 2. 🔥 GOLDEN RULE: Raw Supabase Auth Listener (Fail-safe)
+    // 2. 🔥 GOLDEN RULE: Raw Firebase Auth Listener (Fail-safe)
     try {
-      Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-        print('DEBUG: AppRouter: onAuthStateChange event: ${data.event}');
+      fb.FirebaseAuth.instance.authStateChanges().listen((user) {
+        print('DEBUG: AppRouter: Firebase authStateChange: ${user?.uid}');
         notifyListeners();
       });
 
@@ -86,7 +84,6 @@ class RouterNotifier extends ChangeNotifier {
           notifyListeners();
         }
       });
-
     } catch (e) {
       print('ERROR: AppRouter: Failed to attach auth listener: $e');
     }
@@ -118,15 +115,25 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       // 2. Authenticated users: Handle role-based navigation and protection
-      final user = Supabase.instance.client.auth.currentUser;
+      final user = fb.FirebaseAuth.instance.currentUser;
       if (user == null) return '/login'; 
 
-      // OPTIMIZATION: Use metadata role immediately to prevent async flicker
-      final metadataRole = user.userMetadata?['role'] as String?;
       final roleAsync = ref.watch(userRoleProvider);
-      final role = metadataRole ?? roleAsync.valueOrNull ?? 'user';
+      final role = roleAsync.valueOrNull ?? 'user';
 
       print('DEBUG: AppRouter: Resolved role for redirect: $role');
+
+      // 3. New User Guard: If logged in but no profile, redirect to setup
+      final profileAsync = ref.watch(userProfileProvider);
+      
+      // If we are authenticated but haven't fetched profile yet or it's missing
+      // (Exception: don't redirect if already on profile-setup)
+      if (location != '/profile-setup' && !location.startsWith('/otp')) {
+        if (profileAsync.hasValue && profileAsync.value == null) {
+          print('DEBUG: AppRouter: Profile missing, redirecting to /profile-setup');
+          return '/profile-setup';
+        }
+      }
 
       // Prevent traversing back to auth routes while logged in
       if (_authRoutes.contains(location) || location == '/') {
@@ -148,19 +155,18 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((ref) {
     ),
     GoRoute(
       path: '/login',
-      builder: (context, state) => const LoginScreen(),
+      builder: (context, state) => const PhoneLoginScreen(),
     ),
     GoRoute(
-      path: '/signup',
-      builder: (context, state) => const SignupScreen(),
+      path: '/otp',
+      builder: (context, state) {
+        final phone = state.extra as String? ?? '';
+        return OtpVerifyScreen(phone: phone);
+      },
     ),
     GoRoute(
       path: '/profile-setup',
       builder: (context, state) => const ProfileSetupScreen(),
-    ),
-    GoRoute(
-      path: '/forgot-password',
-      builder: (context, state) => const ForgotPasswordScreen(),
     ),
     GoRoute(
       path: '/home',

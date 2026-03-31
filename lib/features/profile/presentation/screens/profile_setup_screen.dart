@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:boxino/core/theme/app_theme.dart';
+import 'package:boxino/core/providers/app_providers.dart';
+import 'package:boxino/domain/models/app_models.dart';
 
 class ProfileSetupScreen extends ConsumerStatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -22,11 +24,10 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   @override
   void initState() {
     super.initState();
-    // Pre-fill name if available from auth metadata
-    final user = Supabase.instance.client.auth.currentUser;
+    // Pre-fill name and phone if available from Firebase
+    final user = fb.FirebaseAuth.instance.currentUser;
     if (user != null) {
-      _nameController.text = user.userMetadata?['display_name'] ?? '';
-      _phoneController.text = user.userMetadata?['phone'] ?? '';
+      _phoneController.text = user.phoneNumber ?? '';
     }
   }
 
@@ -49,17 +50,22 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
     setState(() => _isSaving = true);
     try {
-      final user = Supabase.instance.client.auth.currentUser;
+      final user = fb.FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('Not authenticated');
 
-      // Update profile in public.users table
-      await Supabase.instance.client.from('users').update({
-        'name': name,
-        'phone': _phoneController.text.trim(),
-        'location_name': location,
-        'preference': _selectedPreference,
-        // (Other fields can be added if your schema has them, e.g., 'dietary_goal')
-      }).eq('id', user.id);
+      final userModel = UserModel(
+        id: user.uid,
+        name: name,
+        email: user.email ?? '',
+        phone: _phoneController.text.trim(),
+        role: 'user',
+        preference: _selectedPreference,
+        locationName: location,
+        userAddress: location, // Syncing for now
+      );
+
+      final service = ref.read(firebaseServiceProvider);
+      await service.createUserProfile(userModel);
 
       if (mounted) {
         _showSnack('Profile saved! 🎉');

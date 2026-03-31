@@ -1,31 +1,37 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb;
 import '../../data/services/supabase_service.dart';
+import '../../data/services/firebase_service.dart';
 import '../../domain/models/app_models.dart';
 
-// ─── Service Provider ─────────────────────────────────────────
+// ─── Service Providers ────────────────────────────────────────
 final supabaseServiceProvider = Provider<SupabaseService>((ref) {
   return SupabaseService();
+});
+
+final firebaseServiceProvider = Provider<FirebaseService>((ref) {
+  return FirebaseService();
 });
 
 // ─── OTP Email Provider ───────────────────────────────────────
 final otpEmailProvider = StateProvider<String>((ref) => '');
 
 // ─── Auth State Stream (reactive) ─────────────────────────────
-final authStateProvider = StreamProvider<AuthState>((ref) {
-  return Supabase.instance.client.auth.onAuthStateChange;
+final authStateProvider = StreamProvider<fb.User?>((ref) {
+  return ref.watch(firebaseServiceProvider).authStateChanges();
 });
 
 // ─── Current User ID ──────────────────────────────────────────
 final currentUserProvider = Provider<String?>((ref) {
-  ref.watch(authStateProvider);
-  return Supabase.instance.client.auth.currentUser?.id;
+  final user = ref.watch(authStateProvider).valueOrNull;
+  return user?.uid;
 });
 
-// ─── Current User Email ───────────────────────────────────────
-final currentUserEmailProvider = Provider<String?>((ref) {
-  return Supabase.instance.client.auth.currentUser?.email;
+// ─── Current User Phone ────────────────────────────────────────
+final currentUserPhoneProvider = Provider<String?>((ref) {
+  final user = ref.watch(authStateProvider).valueOrNull;
+  return user?.phoneNumber;
 });
 
 // ─── Is Logged In ─────────────────────────────────────────────
@@ -37,7 +43,7 @@ final isLoggedInProvider = Provider<bool>((ref) {
 final userProfileProvider = FutureProvider<UserModel?>((ref) async {
   final userId = ref.watch(currentUserProvider);
   if (userId == null) return null;
-  final service = ref.read(supabaseServiceProvider);
+  final service = ref.read(firebaseServiceProvider);
   return await service.getUserProfile(userId);
 });
 
@@ -47,10 +53,11 @@ final userRoleProvider = FutureProvider<String>((ref) async {
   return profile?.role ?? 'user';
 });
 
-// ─── Approved Kitchens Provider (Stream) ──────────────────────
-final approvedKitchensProvider = StreamProvider<List<KitchenModel>>((ref) {
+// ─── Approved Kitchens Provider (Future Optimized) ──────────────────────
+final approvedKitchensProvider = FutureProvider.autoDispose<List<KitchenModel>>((ref) async {
+  print("API CALLED: getApprovedKitchens"); // 🔥 Tracking API Hit
   final service = ref.read(supabaseServiceProvider);
-  return service.watchApprovedKitchens();
+  return await service.getApprovedKitchens();
 });
 
 final kitchenByIdProvider = FutureProvider.family<KitchenModel?, String>((ref, id) async {
@@ -58,8 +65,10 @@ final kitchenByIdProvider = FutureProvider.family<KitchenModel?, String>((ref, i
   return await service.getKitchenById(id);
 });
 
-// ─── Kitchen Menus Provider (Future Family) ───────────────────
+// ─── Kitchen Menus Provider (Future Family Optimized) ───────────────────
 final kitchenMenusProvider = FutureProvider.family<List<MenuModel>, String>((ref, kitchenId) async {
+  ref.keepAlive(); // 🔥 Caches the menu, prevents re-fetching on rebuild
+  print("MENU API CALLED: $kitchenId"); // 🔍 Tracking API Spam
   final service = ref.read(supabaseServiceProvider);
   return await service.getKitchenMenus(kitchenId);
 });
@@ -96,9 +105,10 @@ final pendingOrdersProvider = StreamProvider<List<OrderModel>>((ref) {
   );
 });
 
+// ─── All Users Provider (Not for production - use specific queries) ───
 final allUsersProvider = FutureProvider<List<UserModel>>((ref) async {
-  final service = ref.read(supabaseServiceProvider);
-  return await service.getAllUsers();
+  // Firebase doesn't support easy 'get all users' without SDK Admin or custom logic
+  return [];
 });
 
 // ─── User Orders Provider (Future) ────────────────────────────
@@ -147,7 +157,7 @@ final combinedTrackingProvider = StreamProvider.family<Map<String, dynamic>, Str
 });
 
 final riderDetailsProvider = FutureProvider.family<UserModel?, String>((ref, userId) async {
-  final service = ref.read(supabaseServiceProvider);
+  final service = ref.read(firebaseServiceProvider);
   return await service.getUserProfile(userId);
 });
 
@@ -232,11 +242,13 @@ final searchQueryProvider = StateProvider<String>((ref) => '');
 final navIndexProvider = StateProvider<int>((ref) => 0);
 
 // ─── Optimized/Memoized Filtered Kitchens ─────────────────────
+// 🔥 Filtering logic happens in UI layer/Provider, no additional API calls triggered
 final filteredKitchensProvider = Provider<AsyncValue<List<KitchenModel>>>((ref) {
   final kitchensAsync = ref.watch(approvedKitchensProvider);
   final selectedCategory = ref.watch(selectedCategoryProvider);
   final searchQuery = ref.watch(searchQueryProvider).toLowerCase();
 
+  print("FILTER RE-RUN: Query: $searchQuery, Category: $selectedCategory"); 
   return kitchensAsync.whenData((kitchens) {
     return kitchens.where((k) {
       final matchesCategory = selectedCategory == 'All' || 

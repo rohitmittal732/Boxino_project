@@ -5,38 +5,35 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:boxino/core/theme/app_theme.dart';
 import 'package:boxino/core/routes/app_router.dart';
+import 'package:firebase_core/firebase_core.dart';
 
-void main() async {
-  try {
-    WidgetsFlutterBinding.ensureInitialized();
-    
-    print('DEBUG: Initializing Supabase...');
-    await Supabase.initialize(
-      url: 'https://zmaddsjqbbbikaqkfmqo.supabase.co',
-      anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InptYWRkc2pxYmJiaWthcWtmbXFvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzNTk2NDgsImV4cCI6MjA4OTkzNTY0OH0.EZ-yStIUwKBjIwZNxXveu1S0p2XiqH3C0XRnNaeFCA8',
-    );
-    print('DEBUG: Supabase initialized successfully.');
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
 
-    runApp(
-      const ProviderScope(
-        child: BoxinoApp(),
-      ),
-    );
-  } catch (e) {
-    print('FATAL ERROR: Supabase initialization failed: $e');
-    // Still run the app but it will likely show errors that we can handle in the UI
-    runApp(
-      ProviderScope(
-        child: MaterialApp(
-          home: Scaffold(
-            body: Center(
-              child: Text('Failed to connect to server: $e\nPlease check your internet connection.'),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  // 🚀 Start UI immediately!
+  runApp(
+    const ProviderScope(
+      child: BoxinoApp(),
+    ),
+  );
+
+  // 🔥 Initialize AFTER UI start (background task)
+  Future.microtask(() async {
+    try {
+      print('DEBUG: Supabase async initialization starting...');
+      await Supabase.initialize(
+        url: 'https://zmaddsjqbbbikaqkfmqo.supabase.co',
+        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InptYWRkc2pxYmJiaWthcWtmbXFvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzNTk2NDgsImV4cCI6MjA4OTkzNTY0OH0.EZ-yStIUwKBjIwZNxXveu1S0p2XiqH3C0XRnNaeFCA8',
+      );
+      print('DEBUG: Supabase ready');
+
+      print('DEBUG: Firebase initialization starting...');
+      await Firebase.initializeApp();
+      print('DEBUG: Firebase ready');
+    } catch (e) {
+      print('FATAL ERROR: Initialization failed: $e');
+    }
+  });
 }
 
 class BoxinoApp extends ConsumerWidget {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:boxino/core/theme/app_theme.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -40,15 +40,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
   Future<void> _initApp() async {
     try {
-      // Ensure splash is visible for at least 1.4s (animation duration)
-      await Future.delayed(const Duration(milliseconds: 1400));
+      await Future.delayed(const Duration(milliseconds: 1500));
+
+      final user = fb.FirebaseAuth.instance.currentUser;
 
       if (!mounted) return;
 
-      final session = Supabase.instance.client.auth.currentSession;
-      if (session != null) {
-        // Navigate to /; GoRouter's redirect logic will handle role-based landing.
-        context.go('/');
+      if (user != null) {
+        context.go('/home');
       } else {
         context.go('/login');
       }

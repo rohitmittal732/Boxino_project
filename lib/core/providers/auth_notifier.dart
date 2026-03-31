@@ -1,7 +1,5 @@
-import 'dart:developer' as dev;
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../../data/services/supabase_service.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb;
+import '../../../data/services/firebase_service.dart';
 import 'app_providers.dart';
 
 // ─── Auth State Model ─────────────────────────────────────────────────────────
@@ -16,12 +14,16 @@ enum AuthStatus {
 class AuthStateModel {
   final AuthStatus status;
   final String? errorMessage;
-  final User? user;
+  final fb.User? user;
+  final String? verificationId;
+  final int? resendToken;
 
   const AuthStateModel({
     this.status = AuthStatus.idle,
     this.errorMessage,
     this.user,
+    this.verificationId,
+    this.resendToken,
   });
 
   bool get isLoading      => status == AuthStatus.loading;
@@ -31,19 +33,23 @@ class AuthStateModel {
   AuthStateModel copyWith({
     AuthStatus? status,
     String? errorMessage,
-    User? user,
+    fb.User? user,
+    String? verificationId,
+    int? resendToken,
   }) {
     return AuthStateModel(
       status: status ?? this.status,
-      errorMessage: errorMessage,
+      errorMessage: errorMessage ?? this.errorMessage,
       user: user ?? this.user,
+      verificationId: verificationId ?? this.verificationId,
+      resendToken: resendToken ?? this.resendToken,
     );
   }
 }
 
 // ─── AuthNotifier ────────────────────────────────────────────────────────────
 class AuthNotifier extends StateNotifier<AuthStateModel> {
-  final SupabaseService _service;
+  final FirebaseService _service;
 
   AuthNotifier(this._service) : super(const AuthStateModel()) {
     _init();
@@ -58,96 +64,63 @@ class AuthNotifier extends StateNotifier<AuthStateModel> {
     }
   }
 
-  // ─── Sign In ───────────────────────────────────────────────────────────────
-  Future<bool> signIn(String email, String password) async {
+  // ─── Firebase Phone OTP ───────────────────────────────────────────────────
+  Future<void> sendFirebaseOtp({
+    required String phone,
+    required Function(String) onCodeSent,
+    required Function(String) onError,
+  }) async {
+    state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
+    
     try {
-      print('DEBUG: AuthNotifier: Attempting sign-in for $email');
-      final response = await _service.signInWithEmail(email, password);
-      
-      if (response.user != null) {
-        print('DEBUG: AuthNotifier: Login successful: ${response.user!.id}');
-        state = AuthStateModel(status: AuthStatus.authenticated, user: response.user);
+      await _service.verifyPhoneNumber(
+        phoneNumber: phone,
+        verificationCompleted: (credential) async {
+          // Auto-resolution (Android only)
+          final result = await fb.FirebaseAuth.instance.signInWithCredential(credential);
+          if (result.user != null) {
+            state = AuthStateModel(status: AuthStatus.authenticated, user: result.user);
+          }
+        },
+        verificationFailed: (e) {
+          state = state.copyWith(status: AuthStatus.error, errorMessage: e.message);
+          onError(e.message ?? 'Verification failed');
+        },
+        codeSent: (verificationId, resendToken) {
+          state = state.copyWith(
+            status: AuthStatus.idle,
+            verificationId: verificationId,
+            resendToken: resendToken,
+          );
+          onCodeSent(verificationId);
+        },
+        codeAutoRetrievalTimeout: (verificationId) {
+          state = state.copyWith(verificationId: verificationId);
+        },
+        forceResendingToken: state.resendToken,
+      );
+    } catch (e) {
+      state = state.copyWith(status: AuthStatus.error, errorMessage: e.toString());
+      onError(e.toString());
+    }
+  }
+
+  Future<bool> verifyFirebaseOtp(String otp) async {
+    if (state.verificationId == null) return false;
+    
+    state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
+    try {
+      final result = await _service.signInWithOtp(state.verificationId!, otp);
+      if (result.user != null) {
+        state = AuthStateModel(status: AuthStatus.authenticated, user: result.user);
         return true;
       }
-      print('DEBUG: AuthNotifier: Login failed: No user in response');
-      return false;
-    } on AuthException catch (e) {
-      print('DEBUG: AuthNotifier: AuthException: ${e.message}');
-      dev.log('Auth error: ${e.message}', name: 'Auth', error: e);
-      state = state.copyWith(
-        status: AuthStatus.error,
-        errorMessage: _parseAuthException(e),
-      );
-      return false;
-    } catch (e, stack) {
-      print('DEBUG: AuthNotifier: Unexpected error: $e');
-      print('DEBUG: AuthNotifier: Stacktrace: $stack');
-      dev.log('Unexpected login error', name: 'Auth', error: e);
-      state = state.copyWith(
-        status: AuthStatus.error,
-        errorMessage: 'An unexpected error occurred: ${e.toString()}',
-      );
-      return false;
-    }
-  }
-
-  // ─── Sign Up ───────────────────────────────────────────────────────────────
-  Future<bool> signUp(String email, String password, String name, String phone) async {
-    state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
-    dev.log('Attempting signup for: $email', name: 'Auth');
-
-    try {
-      final response = await _service.signUpWithEmail(email, password, name, phone);
-      
-      if (response.user != null) {
-        dev.log('Signup successful for ${response.user!.email}', name: 'Auth');
-        state = AuthStateModel(status: AuthStatus.authenticated, user: response.user);
-        return true;
-      }
-      return false;
-    } on AuthException catch (e) {
-      dev.log('Signup error: ${e.message}', name: 'Auth', error: e);
-      state = state.copyWith(
-        status: AuthStatus.error,
-        errorMessage: _parseSignUpException(e),
-      );
       return false;
     } catch (e) {
-      dev.log('Unexpected signup error', name: 'Auth', error: e);
       state = state.copyWith(
         status: AuthStatus.error,
-        errorMessage: 'Signup failed. Please check your connection.',
+        errorMessage: 'Invalid OTP. Please try again.',
       );
-      return false;
-    }
-  }
-  // ─── Reset Password ───────────────────────────────────────────────────────
-  Future<bool> resetPassword(String email) async {
-    state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
-    try {
-      dev.log('Sending reset password link to $email', name: 'Auth');
-      await _service.resetPassword(email);
-      state = state.copyWith(status: AuthStatus.idle);
-      return true;
-    } catch (e) {
-      dev.log('Failed to send reset link', name: 'Auth', error: e);
-      state = state.copyWith(
-        status: AuthStatus.error,
-        errorMessage: 'Failed to send reset link. Please try again.',
-      );
-      return false;
-    }
-  }
-
-  // ─── Google Sign In ────────────────────────────────────────────────────────
-  Future<bool> signInWithGoogle() async {
-    state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
-    try {
-      await _service.signInWithGoogle();
-      // OAuth flow handles its own state via authStateProvider stream
-      return true;
-    } catch (e) {
-      state = state.copyWith(status: AuthStatus.error, errorMessage: 'Google sign-in failed.');
       return false;
     }
   }
@@ -163,27 +136,10 @@ class AuthNotifier extends StateNotifier<AuthStateModel> {
     state = state.copyWith(status: AuthStatus.idle, errorMessage: null);
   }
 
-  // ─── Error message helpers ────────────────────────────────────────────────
-  String _parseAuthException(AuthException e) {
-    final msg = e.message.toLowerCase();
-    if (msg.contains('invalid login credentials')) return 'Incorrect email or password.';
-    if (msg.contains('email not confirmed')) {
-      return 'Login Failed: Email not confirmed. Please ensure "Confirm Email" is turned OFF in Supabase Auth settings.';
-    }
-    if (msg.contains('too many requests')) return 'Too many attempts. Please wait.';
-    return 'Auth Error: ${e.message}';
-  }
-
-  String _parseSignUpException(AuthException e) {
-    final msg = e.message.toLowerCase();
-    if (msg.contains('user already registered')) return 'This email is already taken.';
-    if (msg.contains('weak_password')) return 'Password must be at least 6 characters.';
-    return e.message;
-  }
 }
 
 // ─── Provider ──────────────────────────────────────────────────────────────
 final authNotifierProvider = StateNotifierProvider<AuthNotifier, AuthStateModel>((ref) {
-  final service = ref.read(supabaseServiceProvider);
+  final service = ref.read(firebaseServiceProvider);
   return AuthNotifier(service);
 });

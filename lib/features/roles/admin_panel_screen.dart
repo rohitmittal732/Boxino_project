@@ -235,7 +235,10 @@ class AdminDashboardTab extends ConsumerWidget {
           ),
         );
       },
-      loading: () => const SizedBox(),
+      loading: () => const Center(child: Padding(
+        padding: EdgeInsets.all(32.0),
+        child: CircularProgressIndicator(color: AppTheme.primaryOrange),
+      )),
 
       error: (e, s) => Center(child: Text('Error loading dashboard: $e')),
     );
@@ -326,7 +329,10 @@ class _AdminKitchensTabState extends ConsumerState<AdminKitchensTab> {
                 },
               );
             },
-            loading: () => const SizedBox(),
+            loading: () => const Center(child: Padding(
+              padding: EdgeInsets.all(32.0),
+              child: CircularProgressIndicator(color: AppTheme.primaryOrange),
+            )),
 
             error: (e, s) => Center(child: Text('Error: $e')),
           ),
@@ -420,7 +426,10 @@ class AdminKitchenCard extends ConsumerWidget {
                       )).toList(),
                     );
                   },
-                  loading: () => const SizedBox(),
+                  loading: () => const Center(child: Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: CircularProgressIndicator(color: AppTheme.primaryOrange),
+                  )),
 
                   error: (e, s) => Text('Error loading menus: $e', style: const TextStyle(color: Colors.red)),
                 ),
@@ -1130,7 +1139,10 @@ class AdminProfileTab extends ConsumerWidget {
           ),
         ),
       ),
-      loading: () => const SizedBox(),
+      loading: () => const Center(child: Padding(
+        padding: EdgeInsets.all(32.0),
+        child: CircularProgressIndicator(color: AppTheme.primaryOrange),
+      )),
 
       error: (e, s) => Center(child: Text('Error loading profile: $e')),
     );

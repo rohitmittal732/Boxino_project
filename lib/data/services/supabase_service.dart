@@ -7,75 +7,7 @@ import 'dart:convert';
 class SupabaseService {
   SupabaseClient get _client => Supabase.instance.client;
 
-  //////////////////
-  /// AUTH Logic ///
-  //////////////////
-
-  Future<AuthResponse> signUpWithEmail(String email, String password, String name, String phone) async {
-    final response = await _client.auth.signUp(
-      email: email, 
-      password: password,
-      data: {
-        'name': name, // Standardized for V4 Trigger
-        'phone': phone,
-        'role': 'user',
-      },
-    );
-
-    // 🔥 V4 MASTER FIX:
-    // User is created in auth.users, and the V4 Database Trigger automatically
-    // handles the sync to public.users with 'ON CONFLICT DO NOTHING'.
-    // No more manual client-side inserts that cause duplicate key errors.
-
-    return response;
-  }
-
-
-  /// Logs in the user.
-  Future<AuthResponse> signInWithEmail(String email, String password) async {
-    return await _client.auth.signInWithPassword(
-      email: email,
-      password: password,
-    );
-  }
-
-  Future<void> signOut() async {
-    await _client.auth.signOut();
-  }
-
-  /// Sends a 6-digit OTP to the user's email.
-  Future<void> sendEmailOtp(String email) async {
-    await _client.auth.signInWithOtp(email: email);
-  }
-
-  /// Verifies the 6-digit OTP entered by the user.
-  Future<AuthResponse> verifyEmailOtp(String email, String otp) async {
-    return await _client.auth.verifyOTP(
-      email: email,
-      token: otp,
-      type: OtpType.email,
-    );
-  }
-  Future<bool> signInWithGoogle() async {
-    return await _client.auth.signInWithOAuth(
-      OAuthProvider.google,
-      redirectTo: 'io.supabase.boxino://login-callback',
-    );
-  }
-
-  Future<void> resetPassword(String email) async {
-    await _client.auth.resetPasswordForEmail(
-      email,
-    );
-  }
-
-  User? get currentUser {
-    try {
-      return _client.auth.currentUser;
-    } catch (_) {
-      return null;
-    }
-  }
+  User? get currentSupabaseUser => null; // Auth moved to Firebase
 
   ////////////////////
   /// DB QUERIES /////
@@ -84,14 +16,16 @@ class SupabaseService {
   // USERS
   Future<UserModel?> getUserProfile(String userId) async {
     try {
-      final response = await _client.from('users').select().eq('id', userId).maybeSingle();
+      // 🚀 V6 Migration: Read from 'profiles' table first
+      var response = await _client.from('profiles').select().eq('id', userId).maybeSingle();
+      
+      // Fallback to legacy 'users' table if not found in profiles
+      if (response == null) {
+        response = await _client.from('users').select().eq('id', userId).maybeSingle();
+      }
+
       if (response != null) {
-        final profile = UserModel.fromJson(response);
-        // 🚀 V5 MASTER: Automated Role-to-JWT Sync
-        if (userId == _client.auth.currentUser?.id) {
-          await syncAuthMetadata(profile.role);
-        }
-        return profile;
+        return UserModel.fromJson(response);
       }
       return null;
     } catch (e) {
@@ -100,26 +34,6 @@ class SupabaseService {
     }
   }
 
-  /// 🔒 V5 MASTER: Automated Metadata Sync
-  /// Ensures that the Auth JWT always matches the Database Role.
-  Future<void> syncAuthMetadata(String role) async {
-    try {
-      final user = _client.auth.currentUser;
-      if (user != null) {
-        final currentMetadataRole = user.userMetadata?['role'] as String?;
-        if (currentMetadataRole != role) {
-          print('LOG: SupabaseService: Syncing Auth Metadata role to $role');
-          await _client.auth.updateUser(
-            UserAttributes(data: {'role': role}),
-          );
-          // 🔥 Force session refresh to obtain new JWT claims immediately
-          await _client.auth.refreshSession();
-        }
-      }
-    } catch (e) {
-      print('WARNING: SupabaseService: Failed to sync auth metadata: $e');
-    }
-  }
 
   Future<void> updateUserProfile({
     required String userId,
@@ -131,24 +45,26 @@ class SupabaseService {
     final Map<String, dynamic> updates = {};
     if (name != null) updates['name'] = name;
     if (phone != null) updates['phone'] = phone;
-    if (address != null) updates['user_address'] = address;
+    if (address != null) updates['address'] = address; // Changed from user_address in profiles
     if (areaName != null) updates['area_name'] = areaName;
-
 
     if (updates.isEmpty) return;
     
-    await _client.from('users').update(updates).eq('id', userId);
+    // First attempt to update 'profiles'
+    try {
+      await _client.from('profiles').upsert({'id': userId, ...updates});
+    } catch (e) {
+      // Fallback/Sync to legacy 'users' for now
+      updates['user_address'] = address; // Legacy name
+      await _client.from('users').update(updates).eq('id', userId);
+    }
   }
 
   Future<void> updateUserRole(String userId, String role) async {
     try {
-      // 1. Update Database
+      // 1. Update Database (Both tables for safety during migration)
+      await _client.from('profiles').update({'role': role}).eq('id', userId);
       await _client.from('users').update({'role': role}).eq('id', userId);
-      
-      // 2. 🚀 V5 MASTER: Sync Metadata if updating current user
-      if (userId == _client.auth.currentUser?.id) {
-        await syncAuthMetadata(role);
-      }
     } catch (e) {
       print('ERROR: SupabaseService: Error updating role for $userId: $e');
       rethrow;
@@ -341,16 +257,8 @@ class SupabaseService {
     final kitchen = await getKitchenById(order.kitchenId);
     if (kitchen == null) throw Exception('Selected kitchen does not exist');
 
-    // 🔥 FIX: Ensure we use the freshly fetched Auth ID
-    final currentUser = Supabase.instance.client.auth.currentUser;
-    if (currentUser == null) throw Exception('User not authenticated');
-
-    final orderData = order.toJson();
-    orderData['user_id'] = currentUser.id; // 🔥 Force correct user_id
-    
-    // Assign customer info to the order record (denormalized for speed)
-    orderData['customer_name'] = currentUser.userMetadata?['name'] ?? 'User';
-    orderData['customer_phone'] = currentUser.userMetadata?['phone'] ?? '';
+    // Force correct user_id (Caller must ensure order items/metadata are set correctly)
+    orderData['user_id'] = order.userId;
 
     int attempts = 0;
 

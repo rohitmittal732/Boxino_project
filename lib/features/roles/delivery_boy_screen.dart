@@ -97,7 +97,10 @@ class _DeliveryBoyScreenState extends ConsumerState<DeliveryBoyScreen> {
           ),
         );
       },
-      loading: () => const SizedBox(), // Removed loader
+      loading: () => const Center(child: Padding(
+        padding: EdgeInsets.all(32.0),
+        child: CircularProgressIndicator(color: AppTheme.primaryOrange),
+      )),
       error: (e, s) => Center(child: Text('Error: $e')),
     );
   }
@@ -302,7 +305,10 @@ class DeliveryEarningsTab extends ConsumerWidget {
     return FutureBuilder<List<dynamic>>(
       future: Supabase.instance.client.from('orders').select().eq('delivery_boy_id', userId).eq('status', 'delivered'),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const SizedBox(); // Removed loader
+        if (!snapshot.hasData) return const Center(child: Padding(
+          padding: EdgeInsets.all(32.0),
+          child: CircularProgressIndicator(color: AppTheme.primaryOrange),
+        ));
         
         final orders = (snapshot.data as List).map((o) => OrderModel.fromJson(o as Map<String, dynamic>)).toList();
         final totalEarnings = orders.fold(0.0, (sum, o) => sum + o.riderEarning);

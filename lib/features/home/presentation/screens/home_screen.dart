@@ -46,6 +46,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final filteredKitchensAsync = ref.watch(filteredKitchensProvider);
     final selectedCategory = ref.watch(selectedCategoryProvider);
 
+    // 🔥 Optimization: Watch role once at the top, not inside the list builder
+    final role = ref.watch(userRoleProvider).valueOrNull ?? 'user';
+    final isRider = role == 'delivery';
+
     return Scaffold(
       backgroundColor: AppTheme.background,
       body: SafeArea(
@@ -86,21 +90,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
-                          final role = ref.watch(userRoleProvider).valueOrNull ?? 'user';
-                          final isRider = role == 'delivery';
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 16.0),
-                            child: KitchenCard(kitchen: filteredKitchens[index], isRider: isRider),
+                            child: KitchenCard(
+                              kitchen: filteredKitchens[index], 
+                              isRider: isRider,
+                            ),
                           );
                         },
                         childCount: filteredKitchens.length,
+                        addAutomaticKeepAlives: true,
+                        addRepaintBoundaries: true,
                       ),
                     ),
                   ),
               ],
             );
           },
-          loading: () => const SizedBox(),
+          loading: () => const Center(
+            child: CircularProgressIndicator(color: AppTheme.primaryOrange),
+          ),
           error: (error, stack) => Center(child: Text('Error: $error')),
         ),
       ),
@@ -238,7 +247,7 @@ class KitchenCard extends StatelessWidget {
               fit: BoxFit.cover,
               memCacheHeight: 300, // Optimize memory
               memCacheWidth: 600,
-              placeholder: (context, url) => Container(color: Colors.grey.shade100, height: 150, width: double.infinity),
+              placeholder: (context, url) => Center(child: CircularProgressIndicator(color: AppTheme.primaryOrange.withOpacity(0.5))),
               errorWidget: (context, url, error) => Image.network(
                 'https://www.eurokidsindia.com/blog/wp-content/uploads/2023/03/best-healthy-food-for-kids-1.png',
                 height: 150,

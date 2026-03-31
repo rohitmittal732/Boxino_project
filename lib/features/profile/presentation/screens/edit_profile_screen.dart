@@ -43,8 +43,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       final userId = ref.read(currentUserProvider);
       if (userId == null) return;
 
-      await ref.read(supabaseServiceProvider).updateUserProfile(
-        userId: userId,
+      await ref.read(firebaseServiceProvider).updateUserProfile(
+        uid: userId,
         name: _nameController.text.trim(),
         phone: _phoneController.text.trim(),
         address: _addressController.text.trim(),
